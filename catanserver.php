@@ -1,10 +1,15 @@
 <?php
-require_once './gameroom.php';
 class SocketService
 {
   private $address = 'localhost';
   private $port = 2333;
   private $_sockets;
+  //以下的变量需要自己管理
+  public $recv_sock[]=null;//正在往服务端发数据的客户端列表
+  public $recv_data[]=null;//接收到的数据，索引和recv_sock对齐
+  public $send_sock[]=null;
+  public $clients[]=null;
+  public $disconnected_clients[]=null;
   public function __construct($address = '', $port='')
   {
       if(!empty($address)){
@@ -13,6 +18,8 @@ class SocketService
       if(!empty($port)) {
         $this->port = $port;
       }
+      $this->service();
+      $this->$clients['localhost'] = $this->_sockets;
   }
 
   public function service(){
@@ -29,16 +36,19 @@ class SocketService
     echo "listen on $this->address $this->port ... \n";
     $this->_sockets = $sock;
   }
-
-  public function run(){
-    $this->service();
-    $clients[] = $this->_sockets;
-    while (true){
-      $changes = $clients;
-      $write = NULL;
+  /*
+  处理一次websocket信息，不包括接收和发送标准信息
+  该函数将自动处理新加入的客户端并将其加至客户端列表中
+  如果有任意客户端向本服务器发送了数据将会转存在recv_data中，键值是ip地址
+  如果有任意客户端终止连接，将在disconnected_clients中标记为1
+  */
+  public function runOnce(){
       $except = NULL;
-      socket_select($changes, $write, $except, NULL);
-      foreach ($changes as $key => $_sock){
+      $this->$recv_data=NULL;
+      $this->$recv_sock=$this->$clients;
+      $this->$send_sock=$this->$clients;
+      socket_select($this->$recv_sock,$this->$send_sock, $except, NULL);
+      foreach ($this->$recv_sock as $key => $_sock){
         if($this->_sockets == $_sock){ //判断是不是新接入的socket
           if(($newClient = socket_accept($_sock)) === false){
             die('failed to accept socket: '.socket_strerror($_sock)."\n");
@@ -54,21 +64,15 @@ class SocketService
           //获取client ip
           socket_getpeername ($newClient, $ip);
           $clients[$ip] = $newClient;
-          echo "Client ip:{$ip}  \n";
-          echo "Client msg:{$line} \n";
         } else {//老客户端的数据
           $byte = socket_recv($_sock, $buffer, 2048, 0);
-          if($byte < 7) continue;//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
-          $msg = $this->message($buffer);
-          //在这里业务代码
-          echo "{$key} clinet msg:",$msg,"\n";
-          fwrite(STDOUT, 'Please input a argument:');
-          $response = trim(fgets(STDIN));
-          $this->send($_sock, $response);
-          echo "{$key} response to Client:".$response,"\n";
+          if($byte < 7)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
+          {
+            $this->$disconnected_clients[$key]=1;//标记断线
+          }
+          $this->$recv_data[$key] = $this->message($buffer);
         }
       }
-    }
   }
 
   /**
@@ -133,6 +137,7 @@ class SocketService
     $msg = $this->frame($msg);
     socket_write($newClinet, $msg, strlen($msg));
   }
+  
 
   public function frame($s) {
     $a = str_split($s, 125);
@@ -154,5 +159,5 @@ class SocketService
   }
 }
 
-$sock = new SocketService();
-$sock->run();
+//$sock = new SocketService();
+//$sock->run();
