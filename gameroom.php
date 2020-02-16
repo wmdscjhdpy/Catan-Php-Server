@@ -4,7 +4,7 @@ require_once './gameitem.php';
 require_once './catanserver.php';
 
 $ser=new SocketService();
-$roomdata[]=null;
+$roomdata=null;
 const MaxPlayer=4;//定义房间最大游玩数
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
@@ -22,22 +22,44 @@ class gameroom{
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
-            if($gameid[i]==null)break;
+            if($this->gameid[$i]==null)break;
         }
         if($i!=MaxPlayer)//说明房间有空位
         {
-            $nicklist[$i]=$nickname;
-            $gameid[$i]=$ip;
+            $this->nicklist[$i]=$nickname;
+            $this->gameid[$i]=$ip;
             return $i;
         }else{
             return -1;//该房间玩家已满
         }
     }
+    ///用户离开房间的动作
+    function leaveroom($ip)
+    {
+        global $roomdata;
+        $roomnum=findRoomByIp($ip);
+        $index=@array_search($ip,$roomdata[$roomnum]->gameid);//找出该ip的索引号
+        $roomdata[$roomnum]->gameid[$index]=null;//清除该id
+        $i=0;
+        for(;$i<MaxPlayer;$i++)//判断是不是空房间
+        {
+            if($roomdata[$roomnum]->gameid[$i]!=null)break;
+        }
+        if($i==MaxPlayer)
+        {//删除该房间
+            delItemByKey($roomdata,$roomnum);
+            return;
+        }
+        $retval['head']='leave';
+        $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
+        $retval['seat']=$index;
+        $roomdata[$roomnum]->broadcast($retval);
+    }
     public function broadcast($msg){//房间广播数据
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
-            if($gameid[i])//存在该玩家
+            if($gameid[$i])//存在该玩家
             {
                 $this->ser->send($this->ser->clients[$gameid[i]],$msg);
             }
@@ -49,30 +71,12 @@ class gameroom{
         return $ret;
     }
 }
-///用户离开房间的动作
-function leaveroom($ser,$ip)
-{
-    $roomnum=findRoomByIp($ip);
-    $index=array_search($ip,$room->gameid);//找出该ip的索引号
-    $roomdata[$roomnum]->gameid[$index]=null;//清除该id
-    $i=0;
-    for(;$i<MaxPlayer;$i++)//判断是不是空房间
-    {
-        if($roomdata[$roomnum]->gameid[$i]!=null)break;
-    }
-    if($i==MaxPlayer)
-    {//删除该房间
-        delItemByKey($roomdata,$roomnum);
-        return;
-    }
-    $retval['head']='leave';
-    $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
-    $retval['seat']=$index;
-    $roomdata[$roomnum]->broadcast($retval);
-}
+
 ///输入ip，返回房间号
 function findRoomByIp($ip)
 {
+    global $roomdata;
+    if(is_array($roomdata))
     foreach ($roomdata as $roomnum => $room) {
         if(in_array($ip,$room->gameid))//刚刚掉线的玩家在这间房
             return $roomnum;
@@ -81,7 +85,10 @@ function findRoomByIp($ip)
 //用于处理websocket传过来的游戏数据
 function dataHandle($rawmsg,$ip)
 {
-    $msg=json_decode($rawmsg);
+    global $ser;
+    global $roomdata;
+    $msg=json_decode($rawmsg,true);//第二个参数设为true能把msg变成一个数组
+    //var_dump($msg);
     $retval=NULL;
     $bc=NULL;//当需要广播信息时在此填入值
     $proessed=0;//判断msg是否被处理
@@ -92,14 +99,14 @@ function dataHandle($rawmsg,$ip)
             $proessed=1;
             if(!isset($roomdata[(string)$msg['room']]))
             {//如果不存在该房间则创建该房间
-                $roomdata[(string)$msg['room']]=new gameroom();
+                $roomdata[(string)$msg['room']]=new gameroom($ser);
                 $retval['priviliege']=1;
-                $retval['showmsg'].="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
+                $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
             }
             $seat=$roomdata[(string)$msg['room']]->enterRoom($ip,$msg['nickname']);
             if($seat==-1)
             {
-                $retval['showmsg'].="当前房间已满！请选择其他房间\n";
+                $retval['showmsg']="当前房间已满！请选择其他房间\n";
                 return;
             }else{
                 $bc['head']='enter';
