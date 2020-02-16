@@ -47,16 +47,16 @@ class gamedata{
     public $rollhandle; 
     public function calcNodeId($Pos){
         $nodeid;
-        $X=($Pos[0]->$x+$Pos[1]->$x+$Pos[2]->$x)/3;
-        $Y=($Pos[0]->$y+$Pos[1]->$y+$Pos[2]->$y)/3;
+        $X=($Pos[0]->x+$Pos[1]->x+$Pos[2]->x)/3;
+        $Y=($Pos[0]->y+$Pos[1]->y+$Pos[2]->y)/3;
         $nodeid=''.$X.$Y;
         return $nodeid;
     }
     
     public function calcRoadId($Pos){//给每一个道路一个唯一编号
         $roadid;
-        $X=($Pos[0]->$x+$Pos[1]->$x)/2;
-        $Y=($Pos[0]->$y+$Pos[1]->$y)/2;
+        $X=($Pos[0]->x+$Pos[1]->x)/2;
+        $Y=($Pos[0]->y+$Pos[1]->y)/2;
         $roadid=''.$X.$Y;
         return $roadid;
     }
@@ -67,32 +67,32 @@ class gamedata{
         switch($deg%360)
         {
             case 0:
-                $newP->$x=$P->x+1;
-                if($newP->$x==0 && (abs($P->$y%2)))$newP->$x+=1;
+                $newP->x=$P->x+1;
+                if($newP->x==0 && (abs($P->y%2)))$newP->x+=1;
             break;
             case 180:
-                $newP->$x=$P->$x-1;
-                if($newP->$x==0 && (abs($P->$y%2)))$newP->$x-=1;
+                $newP->x=$P->x-1;
+                if($newP->x==0 && (abs($P->y%2)))$newP->x-=1;
             break;
             case 60:
-                $newP->$y+=1;
-                if((!(abs($P->$y%2)))&& ($P->$x>=0))$newP->$x+=1;
-                if((abs($P->$y%2))&& ($P->$x<0))$newP->$x+=1;
+                $newP->y+=1;
+                if((!(abs($P->y%2)))&& ($P->x>=0))$newP->x+=1;
+                if((abs($P->y%2))&& ($P->x<0))$newP->x+=1;
             break;
             case 120:
-                $newP->$y+=1;
-                if((abs($P->$y%2))&& ($P->$x>0))$newP->$x-=1;
-                if((!(abs($P->$y%2)))&& ($P->$x<=0))$newP->$x-=1;
+                $newP->y+=1;
+                if((abs($P->y%2))&& ($P->x>0))$newP->x-=1;
+                if((!(abs($P->y%2)))&& ($P->x<=0))$newP->x-=1;
             break;
             case 240:
-                $newP->$y-=1;
-                if((abs($P->y%2))&& ($P->x>0))$newP->$x-=1;
-                if((!(abs($P->y%2)))&& ($P->x<=0))$newP->$x-=1;
+                $newP->y-=1;
+                if((abs($P->y%2))&& ($P->x>0))$newP->x-=1;
+                if((!(abs($P->y%2)))&& ($P->x<=0))$newP->x-=1;
             break;
             case 300:
-                $newP->$y-=1;
-                if((!(abs($P->y%2)))&& ($P->x>=0))$newP->$x+=1;
-                if((abs($P->y%2))&& ($P->x<0))$newP->$x+=1;
+                $newP->y-=1;
+                if((!(abs($P->y%2)))&& ($P->x>=0))$newP->x+=1;
+                if((abs($P->y%2))&& ($P->x<0))$newP->x+=1;
             break;
         }
         return $newP;
@@ -105,8 +105,8 @@ class gamedata{
         {
              $P1=getNearPosition($P,$i);
              $P2=getNearPosition($P,$i+60);
-            array_push($ret->$val,[$P0,$P1,$P2]);
-            array_push($ret->$chk,calcNodeId([$P0,$P1,$P2]));
+            array_push($ret->val,[$P0,$P1,$P2]);
+            array_push($ret->chk,calcNodeId([$P0,$P1,$P2]));
         }
         return $ret;
     }
@@ -117,23 +117,23 @@ class gamedata{
         for( $i=0;$i<360;$i+=60)
         {
              $P1=getNearPosition($P,$i);
-            array_push($ret->$val,[$P0,$P1]);
-            array_push($ret->$chk,calcRoadId([$P0,$P1]));
+            array_push($ret->val,[$P0,$P1]);
+            array_push($ret->chk,calcRoadId([$P0,$P1]));
         }
         return $ret;
     }
     public function startgame()//初始化游戏地图
     {
         $ret;
-        $it->$x=0;
-        $it->$y=0;
-        array_push($ret->$hexagon,$it);
+        $it->x=0;
+        $it->y=0;
+        array_push($ret->hexagon,$it);
         //大循环
         for($i=1;$i<=2;$i++)
         {
             $it=getNearPosition($it,300);
     
-            array_push($ret->$hexagon,$it);
+            array_push($ret->hexagon,$it);
             for($deg=0;$deg<360;$deg+=60)
             {
                 $k=0;
@@ -141,60 +141,60 @@ class gamedata{
                 while($k<$i)
                 {
                     $it=getNearPosition($it,$deg);
-                    array_push($ret->$hexagon,$it);
+                    array_push($ret->hexagon,$it);
                     $k++;
                 }
             }
         }
         //开始生成节点
-        for($i=0;$i<count($ret->$hexagon);$i++)
+        for($i=0;$i<count($ret->hexagon);$i++)
         {
-            $tmpnodelist=getAllNodeNearby($ret->$hexagon[$i]);//获取节点
+            $tmpnodelist=getAllNodeNearby($ret->hexagon[$i]);//获取节点
             for( $l=0;$l<6;$l++)
             {   
-                if(!in_array($tmpnodelist->$chk[$l],$nodechklist))//不存在这个node
+                if(!in_array($tmpnodelist->chk[$l],$nodechklist))//不存在这个node
                 {
-                    array_push($nodechklist,$tmpnodelist->$chk[$l]);
-                    array_push($ret->$node,$tmpnodelist->$val[$l]);
+                    array_push($nodechklist,$tmpnodelist->chk[$l]);
+                    array_push($ret->node,$tmpnodelist->val[$l]);
                 }
             }
         }    
         //开始生成道路
-        for($i=0;$i<count($ret->$hexagon);$i++)
+        for($i=0;$i<count($ret->hexagon);$i++)
         {
-            $tmproadlist=getAllRoadNearBy($ret->$hexagon[$i]);//获取节点
+            $tmproadlist=getAllRoadNearBy($ret->hexagon[$i]);//获取节点
             for( $l=0;$l<6;$l++)
             {   
-                if(!in_array($tmproadlist->$chk[$l],$roadchklist))//不存在这个road
+                if(!in_array($tmproadlist->chk[$l],$roadchklist))//不存在这个road
                 {
-                    array_push($roadchklist,$tmproadlist->$chk[$l]);
-                    array_push($ret->$road,$tmproadlist->$val[$l]);
+                    array_push($roadchklist,$tmproadlist->chk[$l]);
+                    array_push($ret->road,$tmproadlist->val[$l]);
                 }
             }
         }
         $hexagonNumberlist=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12,7];
         $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone'];//注意这个是除掉了沙漠的
-        for($i=0;$i<count($ret->$hexagon);$i++)
+        for($i=0;$i<count($ret->hexagon);$i++)
         {
-            $this->$hexagonlist[$i]=new hexagon($ret->$hexagon[i]);
-            $retdata['hexagon']['Pos'][$i]=$ret->$hexagon[i];
+            $this->hexagonlist[$i]=new hexagon($ret->hexagon[i]);
+            $retdata['hexagon']['Pos'][$i]=$ret->hexagon[i];
             //先分配数字
-            $this->$hexagonlist[$i]->$number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-            $retdata['hexagon']['number']=$this->$hexagonlist[$i]->$number;
+            $this->hexagonlist[$i]->number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+            $retdata['hexagon']['number']=$this->hexagonlist[$i]->number;
             //分配资源
-            if($this->$hexagonlist[$i]->$number==7)
+            if($this->hexagonlist[$i]->number==7)
             {
-                $this->$hexagonlist[$i]->$kind='desert';
+                $this->hexagonlist[$i]->kind='desert';
                 $retdata['hexagon']['kind'][$i]='desert';
             }else{
-                $this->$hexagonlist[$i]->$kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-                $retdata['hexagon']['kind'][$i]=$this->$hexagonlist[$i]->$kind;
+                $this->hexagonlist[$i]->kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+                $retdata['hexagon']['kind'][$i]=$this->hexagonlist[$i]->kind;
             }
             //至此地区已经布置完成，可以发送到客户端
         }
         ///TODO :港口
-        $retdata['node']=$ret->$nodelist;
-        $retdata['road']=$ret->$roadlist;
+        $retdata['node']=$ret->nodelist;
+        $retdata['road']=$ret->roadlist;
         $retdata['head']='startgame';
         $json=json_encode($retdata);
         return $json;

@@ -14,7 +14,7 @@ class gameroom{
     public $data;//存放房间游戏信息
     public $ser;//存放服务器信息
     public function __construct($linkserver){
-        $this->$data=new gamedata();
+        $this->data=new gamedata();
         $this->ser=$linkserver;
     }
     public function enterRoom($ip,$nickname)//登记玩家进入房间
@@ -39,13 +39,13 @@ class gameroom{
         {
             if($gameid[i])//存在该玩家
             {
-                $this->$ser->send($this->$ser->$clients[$gameid[i]],$msg);
+                $this->ser->send($this->ser->clients[$gameid[i]],$msg);
             }
         }
     }
-    public findIndexFromIp($ip)
+    public function findIndexFromIp($ip)
     {
-        $ret=array_search($ip,$this->$gameid);
+        $ret=array_search($ip,$this->gameid);
         return $ret;
     }
 }
@@ -53,12 +53,12 @@ class gameroom{
 function leaveroom($ser,$ip)
 {
     $roomnum=findRoomByIp($ip);
-    $index=array_search($ip,$room->$gameid);//找出该ip的索引号
-    $roomdata[$roomnum]->$gameid[$index]=null;//清除该id
+    $index=array_search($ip,$room->gameid);//找出该ip的索引号
+    $roomdata[$roomnum]->gameid[$index]=null;//清除该id
     $i=0;
     for(;$i<MaxPlayer;$i++)//判断是不是空房间
     {
-        if($roomdata[$roomnum]->$gameid[$i]!=null)break;
+        if($roomdata[$roomnum]->gameid[$i]!=null)break;
     }
     if($i==MaxPlayer)
     {//删除该房间
@@ -66,7 +66,7 @@ function leaveroom($ser,$ip)
         return;
     }
     $retval['head']='leave';
-    $retval['showmsg']="玩家".$roomdata[$roomnum]->$nicklist[$index]."离开了房间";
+    $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
     $retval['seat']=$index;
     $roomdata[$roomnum]->broadcast($retval);
 }
@@ -74,7 +74,7 @@ function leaveroom($ser,$ip)
 function findRoomByIp($ip)
 {
     foreach ($roomdata as $roomnum => $room) {
-        if(in_array($ip,$room->$gameid))//刚刚掉线的玩家在这间房
+        if(in_array($ip,$room->gameid))//刚刚掉线的玩家在这间房
             return $roomnum;
     }
 }
@@ -110,7 +110,7 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'ready':
             $proessed=1;
-            $this->$gameready[$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip)]=$msg['flag'];
+            $this->gameready[$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip)]=$msg['flag'];
             $bc['head']='ready';
             $bc['index']=$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip);
             $bc['flag']=$msg['flag'];
@@ -121,7 +121,7 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'gameon':
             $proessed=1;
-            $bc=$this->$data->startgame();//此处还没实现
+            $bc=$this->data->startgame();//此处还没实现
             //调用游戏初始化引擎
         break;
     }
@@ -130,7 +130,7 @@ function dataHandle($rawmsg,$ip)
     if($retval)
     {
         $json=json_encode($retval);
-        $ser->send($ser->$clients[$ip],$json);
+        $ser->send($ser->clients[$ip],$json);
     }
     if($bc)
     {
@@ -154,16 +154,16 @@ function delItemByKey(&$arr, $key){
 while (true) {
     $ser->runOnce();
     //处理断线情况
-    if(is_array($ser->$disconnected_clients))
-    foreach ($ser->$disconnected_clients as $ip => $value) {
+    if(is_array($ser->disconnected_clients))
+    foreach ($ser->disconnected_clients as $ip => $value) {
         //删除断线信息
-        delItemByKey($ser->$disconnected_clients,$ip);
-        delItemByKey($ser->$clients,$ip);
+        delItemByKey($ser->disconnected_clients,$ip);
+        delItemByKey($ser->clients,$ip);
         leaveroom($ser,$ip);
     }
     //处理正常情况
-    if(is_array($ser->$recv_data))
-    foreach ($ser->$recv_data as $ip => $data) {
+    if(is_array($ser->recv_data))
+    foreach ($ser->recv_data as $ip => $data) {
         dataHandle($data,$ip);
     }
 }
