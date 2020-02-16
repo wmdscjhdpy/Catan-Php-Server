@@ -5,11 +5,12 @@ require_once './catanserver.php';
 
 $ser=new SocketService();
 $roomdata[]=null;
-define("MaxPlayer",4);//定义房间最大游玩数
+const MaxPlayer=4;//定义房间最大游玩数
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
     public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
+    public $gameready;//array 座位号索引 代表玩家准备信息
     public $data;//存放房间游戏信息
     public $ser;//存放服务器信息
     public function __construct($linkserver){
@@ -41,6 +42,11 @@ class gameroom{
                 $this->$ser->send($this->$ser->$clients[$gameid[i]],$msg);
             }
         }
+    }
+    public findIndexFromIp($ip)
+    {
+        $ret=array_search($ip,$this->$gameid);
+        return $ret;
     }
 }
 ///用户离开房间的动作
@@ -78,12 +84,15 @@ function dataHandle($rawmsg,$ip)
     $msg=json_decode($rawmsg);
     $retval=NULL;
     $bc=NULL;//当需要广播信息时在此填入值
+    $proessed=0;//判断msg是否被处理
+    //房间管理用的switch
     switch($msg['head'])
     {
         case 'enter':
+            $proessed=1;
             if(!isset($roomdata[(string)$msg['room']]))
             {//如果不存在该房间则创建该房间
-                $roomdata[(string)$msg['room']]=new catan();
+                $roomdata[(string)$msg['room']]=new gameroom();
                 $retval['priviliege']=1;
                 $retval['showmsg'].="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
             }
@@ -95,14 +104,39 @@ function dataHandle($rawmsg,$ip)
             }else{
                 $bc['head']='enter';
                 $bc['index']=$seat;
+                $bc['nickname']=$msg['nickname'];
                 $bc['showmsg'].="欢迎 ".$msg['nickname']."进入房间\n";
             }
         break;
+        case 'ready':
+            $proessed=1;
+            $this->$gameready[$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip)]=$msg['flag'];
+            $bc['head']='ready';
+            $bc['index']=$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip);
+            $bc['flag']=$msg['flag'];
+        break;
+        case 'leave':
+            $proessed=1;
+            leaveroom($ser,$ip);
+        break;
+        case 'gameon':
+            $proessed=1;
+            $bc=$this->$data->startgame();//此处还没实现
+            //调用游戏初始化引擎
+        break;
     }
-    $json=json_encode($retval);
-    $ser->send($ser->$clients[$ip],$json);
-    $jsonbc=json_encode($bc);
-    $roomdata[findRoomByIp($ip)]->broadcast($jsonbc);
+
+    //信息分发
+    if($retval)
+    {
+        $json=json_encode($retval);
+        $ser->send($ser->$clients[$ip],$json);
+    }
+    if($bc)
+    {
+        $jsonbc=json_encode($bc);
+        $roomdata[findRoomByIp($ip)]->broadcast($jsonbc);
+    }
 }
 //根据键值删除列表元素
 function delItemByKey(&$arr, $key){ 
@@ -120,6 +154,7 @@ function delItemByKey(&$arr, $key){
 while (true) {
     $ser->runOnce();
     //处理断线情况
+    if(is_array($ser->$disconnected_clients))
     foreach ($ser->$disconnected_clients as $ip => $value) {
         //删除断线信息
         delItemByKey($ser->$disconnected_clients,$ip);
@@ -127,6 +162,7 @@ while (true) {
         leaveroom($ser,$ip);
     }
     //处理正常情况
+    if(is_array($ser->$recv_data))
     foreach ($ser->$recv_data as $ip => $data) {
         dataHandle($data,$ip);
     }

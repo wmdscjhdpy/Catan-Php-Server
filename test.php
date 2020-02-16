@@ -1,3 +1,3 @@
 <?php
-$a.="test";
-var_dump($a);
+$a=array('b'=>'bbbbbbb','c'=>'ccccc');
+echo $a->'b';

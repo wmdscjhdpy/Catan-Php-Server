@@ -5,11 +5,11 @@ class SocketService
   private $port = 2333;
   private $_sockets;
   //以下的变量需要自己管理
-  public $recv_sock[]=null;//正在往服务端发数据的客户端列表
-  public $recv_data[]=null;//接收到的数据，索引和recv_sock对齐
-  public $send_sock[]=null;
-  public $clients[]=null;
-  public $disconnected_clients[]=null;
+  public $recv_sock=null;//正在往服务端发数据的客户端列表
+  public $recv_data=null;//接收到的数据，索引和recv_sock对齐
+  public $send_sock=null;
+  public $clients=null;
+  public $disconnected_clients=null;
   public function __construct($address = '', $port='')
   {
       if(!empty($address)){
@@ -47,7 +47,8 @@ class SocketService
       $this->$recv_data=NULL;
       $this->$recv_sock=$this->$clients;
       $this->$send_sock=$this->$clients;
-      socket_select($this->$recv_sock,$this->$send_sock, $except, NULL);
+      @socket_select($this->$recv_sock,$this->$send_sock, $except, NULL);
+      if(is_array($this->$recv_sock))
       foreach ($this->$recv_sock as $key => $_sock){
         if($this->_sockets == $_sock){ //判断是不是新接入的socket
           if(($newClient = socket_accept($_sock)) === false){

@@ -1,5 +1,7 @@
 <?php
 //namespace catan;
+//定义0-3为 蓝绿红黄
+const colornum=array('blue','green','red','yellow');
 //资源对应数字          0       1       2       3       4
 const kindnum=array('forest','iron','grass','wheat','stone');
 //以下是游戏元素
@@ -33,7 +35,6 @@ class road{
     }
 }
 //以下是游戏数据库
-//定义0-4为 蓝绿红黄
 class gamedata{
     public $hexagonlist;//存储六边形对象
     public $nodelist;//存储结点对象
@@ -121,7 +122,7 @@ class gamedata{
         }
         return $ret;
     }
-    public function initMap()//初始化游戏地图
+    public function startgame()//初始化游戏地图
     {
         $ret;
         $it->$x=0;
@@ -171,25 +172,32 @@ class gamedata{
                 }
             }
         }
-        //至此所有地图元素已集齐但未初始化
         $hexagonNumberlist=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12,7];
         $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone'];//注意这个是除掉了沙漠的
         for($i=0;$i<count($ret->$hexagon);$i++)
         {
             $this->$hexagonlist[$i]=new hexagon($ret->$hexagon[i]);
+            $retdata['hexagon']['Pos'][$i]=$ret->$hexagon[i];
             //先分配数字
             $this->$hexagonlist[$i]->$number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+            $retdata['hexagon']['number']=$this->$hexagonlist[$i]->$number;
             //分配资源
             if($this->$hexagonlist[$i]->$number==7)
             {
                 $this->$hexagonlist[$i]->$kind='desert';
+                $retdata['hexagon']['kind'][$i]='desert';
             }else{
                 $this->$hexagonlist[$i]->$kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+                $retdata['hexagon']['kind'][$i]=$this->$hexagonlist[$i]->$kind;
             }
             //至此地区已经布置完成，可以发送到客户端
         }
         ///TODO :港口
-        return;
+        $retdata['node']=$ret->$nodelist;
+        $retdata['road']=$ret->$roadlist;
+        $retdata['head']='startgame';
+        $json=json_encode($retdata);
+        return $json;
     }
 }
 
