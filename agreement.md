@@ -9,6 +9,7 @@
 - nickname:昵称
 返回数据包特征属性:
 - priviliege:你是否是房主
+如果房间已满则返回head:error的数据包
 
 服务端会对房间其他人广播一个head:enter的数据包
 特征属性:

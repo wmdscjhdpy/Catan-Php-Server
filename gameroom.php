@@ -34,10 +34,10 @@ class gameroom{
         }
     }
     ///用户离开房间的动作
-    function leaveroom($ip)
+    static public function leaveroom($ip)
     {
         global $roomdata;
-        $roomnum=getInfoFromIp($ip)->roomnum;
+        $roomnum=getInfoFromIp($ip)['roomnum'];
         $index=@array_search($ip,$roomdata[$roomnum]->gameid);//找出该ip的索引号
         $roomdata[$roomnum]->gameid[$index]=null;//清除该id
         $i=0;
@@ -67,14 +67,14 @@ class gameroom{
     }
     public function broadcastExt($msg,$ip)//对除当前ip地址外的人广播
     {
-        $ext=getInfoFromIp($ip)->index;
+        $ext=getInfoFromIp($ip)['roomnum'];
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
             if($i==$ext)continue;
-            if($gameid[$i])//存在该玩家
+            if($this->gameid[$i])//存在该玩家
             {
-                $this->ser->send($this->ser->clients[$gameid[i]],$msg);
+                $this->ser->send($this->ser->clients[$this->gameid[$i]],$msg);
             }
         }
     }
@@ -87,11 +87,14 @@ function getInfoFromIp($ip)
     if(is_array($roomdata))
     foreach ($roomdata as $roomnum => $room) {
         $i=array_search($ip,$room->gameid);
-        if($i!=false)//刚刚掉线的玩家在这间房
-            $ret->roomnum=$roomnum;
-            $ret->index=$i;
+        if($i!==false)//刚刚掉线的玩家在这间房
+        {
+            $ret['roomnum']=$roomnum;
+            $ret['index']=$i;
             return $ret;
+        }
     }
+    echo "error: no ip in the room\n";
 }
 //用于处理websocket传过来的游戏数据
 function dataHandle($rawmsg,$ip)
@@ -109,27 +112,30 @@ function dataHandle($rawmsg,$ip)
     {
         case 'enter':
             $proessed=1;
+            $retval['head']='enter';
             if(!isset($roomdata[(string)$msg['room']]))
             {//如果不存在该房间则创建该房间
-                $roomdata[(string)$msg['room']]=new gameroom($ser);
+                $roomdata[$msg['room']]=new gameroom($ser);
                 $retval['priviliege']=1;
                 $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
             }
-            $seat=$roomdata[(string)$msg['room']]->enterRoom($ip,$msg['nickname']);
+            //还应该有房间其他人的信息
+            $seat=$roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);
             if($seat==-1)
             {
+                $retval['head']='error';
                 $retval['showmsg']="当前房间已满！请选择其他房间\n";
                 return;
             }else{
                 $ext['head']='enter';
                 $ext['index']=$seat;
                 $ext['nickname']=$msg['nickname'];
-                $ext['showmsg'].="欢迎 ".$msg['nickname']."进入房间\n";
+                $ext['showmsg']="欢迎 ".$msg['nickname']."进入房间\n";
             }
         break;
         case 'ready':
             $proessed=1;
-            $index=getInfoFromIp($ip)->index;
+            $index=getInfoFromIp($ip)['index'];
             $this->gameready[]=$msg['flag'];
             $bc['head']='ready';
             $bc['index']=$index;
@@ -137,7 +143,7 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'leave':
             $proessed=1;
-            leaveroom($ser,$ip);
+            gameroom::leaveroom($ip);
         break;
         case 'gameon':
             $proessed=1;
@@ -149,18 +155,19 @@ function dataHandle($rawmsg,$ip)
     //信息分发
     if($retval)
     {
-        $json=json_encode($retval);
+        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);
         $ser->send($ser->clients[$ip],$json);
+        var_dump($json);
     }
     if($bc)
     {
-        $jsonbc=json_encode($bc);
-        $roomdata[getInfoFromIp($ip)->roomnum]->broadcast($jsonbc);
+        $jsonbc=json_encode($bc,JSON_UNESCAPED_UNICODE);
+        $roomdata[getInfoFromIp($ip)['roomnum']]->broadcast($jsonbc);
     }
     if($ext)
     {
-        $jsonext=json_encode($ext);
-        $roomdata[getInfoFromIp($ip)->roomnum]->broadcastExt($jsonext,$ip);
+        $jsonext=json_encode($ext,JSON_UNESCAPED_UNICODE);
+        $roomdata[getInfoFromIp($ip)['roomnum']]->broadcastExt($jsonext,$ip);
     }
 }
 //根据键值删除列表元素
@@ -182,9 +189,9 @@ while (true) {
     if(is_array($ser->disconnected_clients))
     foreach ($ser->disconnected_clients as $ip => $value) {
         //删除断线信息
+        gameroom::leaveroom($ip);
         delItemByKey($ser->disconnected_clients,$ip);
         delItemByKey($ser->clients,$ip);
-        leaveroom($ser,$ip);
     }
     //处理正常情况
     if(is_array($ser->recv_data))

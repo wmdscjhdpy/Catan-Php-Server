@@ -11,7 +11,7 @@
             "port": 9001
         },
         {
-            "name": "Launch currently open script",
+            "name": "Launch",
             "type": "php",
             "request": "launch",
             "program": "${file}",

@@ -1,3 +1,5 @@
 <?php
-$a='';
-if(is_string($a))echo "hhhh";
+$a='a';
+$b="a";
+var_dump($a);
+var_dump($b);

@@ -70,7 +70,7 @@ class SocketService
           if($byte < 7)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
           {
             $this->disconnected_clients[$key]=1;//标记断线
-            echo "$key disconnected";
+            echo "$key disconnected\n";
           }
           $this->recv_data[$key] = $this->message($buffer);
         }
