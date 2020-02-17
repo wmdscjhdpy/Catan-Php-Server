@@ -142,15 +142,12 @@ class SocketService
   
 
   public function frame($s) {
-    $a = str_split($s, 125);
-    if (count($a) == 1) {
-      return "\x81" . chr(strlen($a[0])) . $a[0];
+    if(strlen($s)<126)
+    {
+      return "\x81" . chr(strlen($s)) . $s;
+    }else if(strlen($s)<0xffff){
+      return "\x81" . chr(126) . chr(strlen($s) >>8) . chr(strlen($s) & 0xff) .$s;
     }
-    $ns = "";
-    foreach ($a as $o) {
-        $ns .= "\x81" . chr(strlen($o)) . $o;
-    }
-    return $ns;
   }
 
   /**

@@ -154,18 +154,18 @@ function dataHandle($rawmsg,$ip)
     //信息分发
     if($retval)
     {
-        $json=json_encode($retval);//JSON_UNESCAPED_UNICODE
+        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
         $ser->send($ser->clients[$ip],$json);
     }
     if($bc)
     {
-        $jsonbc=json_encode($bc);
+        $jsonbc=json_encode($bc,JSON_UNESCAPED_UNICODE);
         $roomdata[getInfoFromIp($ip)['roomnum']]->broadcast($jsonbc);
     }
     if($ext)
     {
         var_dump($ext);
-        $jsonext=json_encode($ext);
+        $jsonext=json_encode($ext,JSON_UNESCAPED_UNICODE);
         $roomdata[getInfoFromIp($ip)['roomnum']]->broadcastExt($jsonext,$ip);
     }
 }
