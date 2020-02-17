@@ -148,7 +148,7 @@ class SocketService
     }
     $ns = "";
     foreach ($a as $o) {
-      $ns .= "\x81" . chr(strlen($o)) . $o;
+        $ns .= "\x81" . chr(strlen($o)) . $o;
     }
     return $ns;
   }

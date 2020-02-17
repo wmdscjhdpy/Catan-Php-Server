@@ -59,15 +59,15 @@ class gameroom{
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
-            if($gameid[$i])//存在该玩家
+            if($this->gameid[$i])//存在该玩家
             {
-                $this->ser->send($this->ser->clients[$gameid[i]],$msg);
+                $this->ser->send($this->ser->clients[$this->gameid[$i]],$msg);
             }
         }
     }
     public function broadcastExt($msg,$ip)//对除当前ip地址外的人广播
     {
-        $ext=getInfoFromIp($ip)['roomnum'];
+        $ext=getInfoFromIp($ip)['index'];
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
@@ -112,14 +112,12 @@ function dataHandle($rawmsg,$ip)
     {
         case 'enter':
             $proessed=1;
-            $retval['head']='enter';
             if(!isset($roomdata[(string)$msg['room']]))
             {//如果不存在该房间则创建该房间
                 $roomdata[$msg['room']]=new gameroom($ser);
-                $retval['priviliege']=1;
-                $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
+                $retval['head']='priviliege';
+                $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏";//
             }
-            //还应该有房间其他人的信息
             $seat=$roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);
             if($seat==-1)
             {
@@ -127,10 +125,11 @@ function dataHandle($rawmsg,$ip)
                 $retval['showmsg']="当前房间已满！请选择其他房间\n";
                 return;
             }else{
-                $ext['head']='enter';
-                $ext['index']=$seat;
-                $ext['nickname']=$msg['nickname'];
-                $ext['showmsg']="欢迎 ".$msg['nickname']."进入房间\n";
+                //不作为房主进入还应该有房间其他人的信息
+                $bc['head']='enter';
+                $bc['index']=$seat;
+                $bc['nickname']=$msg['nickname'];
+                $bc['showmsg']="欢迎".$msg['nickname']."进入房间\n";
             }
         break;
         case 'ready':
@@ -155,18 +154,18 @@ function dataHandle($rawmsg,$ip)
     //信息分发
     if($retval)
     {
-        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);
+        $json=json_encode($retval);//JSON_UNESCAPED_UNICODE
         $ser->send($ser->clients[$ip],$json);
-        var_dump($json);
     }
     if($bc)
     {
-        $jsonbc=json_encode($bc,JSON_UNESCAPED_UNICODE);
+        $jsonbc=json_encode($bc);
         $roomdata[getInfoFromIp($ip)['roomnum']]->broadcast($jsonbc);
     }
     if($ext)
     {
-        $jsonext=json_encode($ext,JSON_UNESCAPED_UNICODE);
+        var_dump($ext);
+        $jsonext=json_encode($ext);
         $roomdata[getInfoFromIp($ip)['roomnum']]->broadcastExt($jsonext,$ip);
     }
 }

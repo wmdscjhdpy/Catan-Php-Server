@@ -1,5 +1,6 @@
 <?php
-$a='a';
-$b="a";
-var_dump($a);
-var_dump($b);
+$a[0]=1;
+$a[1]=2;
+foreach ($a as $key => $value) {
+    echo $key;
+}

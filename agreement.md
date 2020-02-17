@@ -7,11 +7,12 @@
 该数据包特征属性:
 - room:房间号
 - nickname:昵称
-返回数据包特征属性:
-- priviliege:你是否是房主
+如果你是房主则返回head:priviliege的数据包
+
 如果房间已满则返回head:error的数据包
 
-服务端会对房间其他人广播一个head:enter的数据包
+服务端会对房间所有人广播一个head:enter的数据包
+
 特征属性:
 - seat:进入房间的人的座位号
 - nickname:进入的人的昵称
