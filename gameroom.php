@@ -52,7 +52,8 @@ class gameroom{
         }
         $retval['head']='leave';
         $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
-        $retval['seat']=$index;
+        $retval['index']=$index;
+        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
         $roomdata[$roomnum]->broadcast($retval);
     }
     public function broadcast($msg){//房间广播数据
@@ -75,6 +76,29 @@ class gameroom{
             if($this->gameid[$i])//存在该玩家
             {
                 $this->ser->send($this->ser->clients[$this->gameid[$i]],$msg);
+            }
+        }
+    }
+    public function sendOtherUserInfo($ip)//向该用户发送房间其他人的信息
+    {
+        $i=0;
+        for(;$i<MaxPlayer;$i++)
+        {
+            if($this->gameid[$i] && $this->gameid[$i]!==$ip)
+            {
+                $retval['head']='enter';
+                $retval['index']=$i;
+                $retval['nickname']=$this->nicklist[$i];
+                $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
+                $this->ser->send($this->ser->clients[$ip],$retval);
+                if($this->gameready[$i]==1)//还需要发准备状态包
+                {
+                    $ret2['head']='ready';
+                    $ret2['index']=$i;
+                    $ret2['flag']=1;
+                    $json2=json_encode($ret2,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
+                    $this->ser->send($this->ser->clients[$ip],$re2);
+                }
             }
         }
     }
@@ -116,16 +140,17 @@ function dataHandle($rawmsg,$ip)
             {//如果不存在该房间则创建该房间
                 $roomdata[$msg['room']]=new gameroom($ser);
                 $retval['head']='priviliege';
-                $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏开始游戏";//
+                $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";//
             }
+            var_dump($roomdata[$msg['room']]);
             $seat=$roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);
             if($seat==-1)
             {
                 $retval['head']='error';
                 $retval['showmsg']="当前房间已满！请选择其他房间\n";
-                return;
             }else{
-                //不作为房主进入还应该有房间其他人的信息
+                //如果房间有其他人则向该用户给出其他用户的信息
+                $roomdata[$msg['room']]->sendOtherUserInfo($ip);
                 $bc['head']='enter';
                 $bc['index']=$seat;
                 $bc['nickname']=$msg['nickname'];
@@ -164,7 +189,6 @@ function dataHandle($rawmsg,$ip)
     }
     if($ext)
     {
-        var_dump($ext);
         $jsonext=json_encode($ext,JSON_UNESCAPED_UNICODE);
         $roomdata[getInfoFromIp($ip)['roomnum']]->broadcastExt($jsonext,$ip);
     }

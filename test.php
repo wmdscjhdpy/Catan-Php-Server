@@ -1,3 +1,3 @@
 <?php
-$a=0xff;
-echo chr(126);
+$a=null;
+if($a)echo "haha";
