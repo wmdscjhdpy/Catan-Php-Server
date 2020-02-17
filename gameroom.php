@@ -37,7 +37,7 @@ class gameroom{
     function leaveroom($ip)
     {
         global $roomdata;
-        $roomnum=findRoomByIp($ip);
+        $roomnum=getInfoFromIp($ip)->roomnum;
         $index=@array_search($ip,$roomdata[$roomnum]->gameid);//找出该ip的索引号
         $roomdata[$roomnum]->gameid[$index]=null;//清除该id
         $i=0;
@@ -65,21 +65,32 @@ class gameroom{
             }
         }
     }
-    public function findIndexFromIp($ip)
+    public function broadcastExt($msg,$ip)//对除当前ip地址外的人广播
     {
-        $ret=array_search($ip,$this->gameid);
-        return $ret;
+        $ext=getInfoFromIp($ip)->index;
+        $i=0;
+        for(;$i<MaxPlayer;$i++)
+        {
+            if($i==$ext)continue;
+            if($gameid[$i])//存在该玩家
+            {
+                $this->ser->send($this->ser->clients[$gameid[i]],$msg);
+            }
+        }
     }
 }
 
 ///输入ip，返回房间号
-function findRoomByIp($ip)
+function getInfoFromIp($ip)
 {
     global $roomdata;
     if(is_array($roomdata))
     foreach ($roomdata as $roomnum => $room) {
-        if(in_array($ip,$room->gameid))//刚刚掉线的玩家在这间房
-            return $roomnum;
+        $i=array_search($ip,$room->gameid);
+        if($i!=false)//刚刚掉线的玩家在这间房
+            $ret->roomnum=$roomnum;
+            $ret->index=$i;
+            return $ret;
     }
 }
 //用于处理websocket传过来的游戏数据
@@ -89,8 +100,9 @@ function dataHandle($rawmsg,$ip)
     global $roomdata;
     $msg=json_decode($rawmsg,true);//第二个参数设为true能把msg变成一个数组
     //var_dump($msg);
-    $retval=NULL;
+    $retval=NULL;//对发信息过来的人返回的具体信息
     $bc=NULL;//当需要广播信息时在此填入值
+    $ext=NULL;//当需要对除发信息者外的人广播信息时用的数据包
     $proessed=0;//判断msg是否被处理
     //房间管理用的switch
     switch($msg['head'])
@@ -109,17 +121,18 @@ function dataHandle($rawmsg,$ip)
                 $retval['showmsg']="当前房间已满！请选择其他房间\n";
                 return;
             }else{
-                $bc['head']='enter';
-                $bc['index']=$seat;
-                $bc['nickname']=$msg['nickname'];
-                $bc['showmsg'].="欢迎 ".$msg['nickname']."进入房间\n";
+                $ext['head']='enter';
+                $ext['index']=$seat;
+                $ext['nickname']=$msg['nickname'];
+                $ext['showmsg'].="欢迎 ".$msg['nickname']."进入房间\n";
             }
         break;
         case 'ready':
             $proessed=1;
-            $this->gameready[$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip)]=$msg['flag'];
+            $index=getInfoFromIp($ip)->index;
+            $this->gameready[]=$msg['flag'];
             $bc['head']='ready';
-            $bc['index']=$roomdata[findRoomByIp($ip)]->findIndexFromIp($ip);
+            $bc['index']=$index;
             $bc['flag']=$msg['flag'];
         break;
         case 'leave':
@@ -142,7 +155,12 @@ function dataHandle($rawmsg,$ip)
     if($bc)
     {
         $jsonbc=json_encode($bc);
-        $roomdata[findRoomByIp($ip)]->broadcast($jsonbc);
+        $roomdata[getInfoFromIp($ip)->roomnum]->broadcast($jsonbc);
+    }
+    if($ext)
+    {
+        $jsonext=json_encode($ext);
+        $roomdata[getInfoFromIp($ip)->roomnum]->broadcastExt($jsonext,$ip);
     }
 }
 //根据键值删除列表元素
