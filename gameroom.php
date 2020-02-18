@@ -11,6 +11,7 @@ class gameroom{
     public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
     public $gameready;//array 座位号索引 代表玩家准备信息
+    public $hostindex;//房主索引
     public $data;//存放房间游戏信息
     public $ser;//存放服务器信息
     public function __construct($linkserver){
@@ -28,6 +29,7 @@ class gameroom{
         {
             $this->nicklist[$i]=$nickname;
             $this->gameid[$i]=$ip;
+            $this->gameready[$i]=0;
             return $i;
         }else{
             return -1;//该房间玩家已满
@@ -54,7 +56,7 @@ class gameroom{
         $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
         $retval['index']=$index;
         $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
-        $roomdata[$roomnum]->broadcast($retval);
+        $roomdata[$roomnum]->broadcast($json);
     }
     public function broadcast($msg){//房间广播数据
         $i=0;
@@ -90,14 +92,14 @@ class gameroom{
                 $retval['index']=$i;
                 $retval['nickname']=$this->nicklist[$i];
                 $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
-                $this->ser->send($this->ser->clients[$ip],$retval);
+                $this->ser->send($this->ser->clients[$ip],$json);
                 if($this->gameready[$i]==1)//还需要发准备状态包
                 {
                     $ret2['head']='ready';
                     $ret2['index']=$i;
                     $ret2['flag']=1;
                     $json2=json_encode($ret2,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
-                    $this->ser->send($this->ser->clients[$ip],$re2);
+                    $this->ser->send($this->ser->clients[$ip],$json2);
                 }
             }
         }
@@ -140,9 +142,10 @@ function dataHandle($rawmsg,$ip)
             {//如果不存在该房间则创建该房间
                 $roomdata[$msg['room']]=new gameroom($ser);
                 $retval['head']='priviliege';
+                $this->hostindex=0;//房主是第一位
                 $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";//
             }
-            var_dump($roomdata[$msg['room']]);
+            //var_dump($roomdata[$msg['room']]);
             $seat=$roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);
             if($seat==-1)
             {
@@ -151,6 +154,7 @@ function dataHandle($rawmsg,$ip)
             }else{
                 //如果房间有其他人则向该用户给出其他用户的信息
                 $roomdata[$msg['room']]->sendOtherUserInfo($ip);
+                sleep(1);
                 $bc['head']='enter';
                 $bc['index']=$seat;
                 $bc['nickname']=$msg['nickname'];
@@ -166,6 +170,7 @@ function dataHandle($rawmsg,$ip)
             $bc['flag']=$msg['flag'];
         break;
         case 'leave':
+            //注意房主权利转移
             $proessed=1;
             gameroom::leaveroom($ip);
         break;
