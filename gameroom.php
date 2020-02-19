@@ -8,8 +8,7 @@ $roomdata=null;
 const MaxPlayer=4;//定义房间最大游玩数
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
-    static public $ser;//存放服务器信息
-
+    public static $ser;//存放服务器信息
     public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
     public $gameready;//array 座位号索引 代表玩家准备信息
@@ -57,15 +56,18 @@ class gameroom{
         {//转移房主权利
             $roomdata[$roomnum]->hostindex=$i;
             $hostmsg['head']='priviliege';
-            $hostmsg['showmsg']='由于前房主离开，你现在是新的房主';
-            $json=json_encode($hostmsg,JSON_UNESCAPED_UNICODE);
-            gameroom::$ser->send($roomdata[$roomnum]->gameid[$i],$json);
+            $hostmsg['showmsg']="由于前房主离开，你现在是新的房主\n";
+            $roomdata[$roomnum]->sendDataByIndex($i,$hostmsg);
         }
         $retval['head']='leave';
-        $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
+        $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间\n";
         $retval['index']=$index;
-        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
-        $roomdata[$roomnum]->broadcast($json);
+        $roomdata[$roomnum]->broadcast($retval);
+    }
+    public function sendDataByIndex($index,$msg)//通过index发送数据，内含jsonencode
+    {
+        $json=json_encode($msg,JSON_UNESCAPED_UNICODE);
+        $this->ser->send($this->ser->clients[$this->gameid[$index]],$json);
     }
     public function broadcast($msg){//房间广播数据
         $i=0;
@@ -73,7 +75,7 @@ class gameroom{
         {
             if($this->gameid[$i])//存在该玩家
             {
-                $this->ser->send($this->ser->clients[$this->gameid[$i]],$msg);
+                $this->sendDataByIndex($i,$msg);
             }
         }
     }
@@ -86,7 +88,7 @@ class gameroom{
             if($i==$ext)continue;
             if($this->gameid[$i])//存在该玩家
             {
-                $this->ser->send($this->ser->clients[$this->gameid[$i]],$msg);
+                $this->sendDataByIndex($i,$msg);
             }
         }
     }
@@ -100,15 +102,13 @@ class gameroom{
                 $retval['head']='enter';
                 $retval['index']=$i;
                 $retval['nickname']=$this->nicklist[$i];
-                $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
-                $this->ser->send($this->ser->clients[$ip],$json);
+                $this->sendDataByIndex(getInfoFromIp($ip)['index'],$retval);
                 if($this->gameready[$i]==1)//还需要发准备状态包
                 {
                     $ret2['head']='ready';
                     $ret2['index']=$i;
                     $ret2['flag']=1;
-                    $json2=json_encode($ret2,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
-                    $this->ser->send($this->ser->clients[$ip],$json2);
+                    $this->sendDataByIndex(getInfoFromIp($ip)['index'],$ret2);
                 }
             }
         }
@@ -189,22 +189,20 @@ function dataHandle($rawmsg,$ip)
             //调用游戏初始化引擎
         break;
     }
-
     //信息分发
     if($retval)
     {
-        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);//JSON_UNESCAPED_UNICODE
+        //因为不在房间内用的原生发送 所以需要转码
+        $json=json_encode($retval,JSON_UNESCAPED_UNICODE);
         $ser->send($ser->clients[$ip],$json);
     }
     if($bc)
     {
-        $jsonbc=json_encode($bc,JSON_UNESCAPED_UNICODE);
-        $roomdata[getInfoFromIp($ip)['roomnum']]->broadcast($jsonbc);
+        $roomdata[getInfoFromIp($ip)['roomnum']]->broadcast($bc);
     }
     if($ext)
     {
-        $jsonext=json_encode($ext,JSON_UNESCAPED_UNICODE);
-        $roomdata[getInfoFromIp($ip)['roomnum']]->broadcastExt($jsonext,$ip);
+        $roomdata[getInfoFromIp($ip)['roomnum']]->broadcastExt($ext,$ip);
     }
 }
 //根据键值删除列表元素
