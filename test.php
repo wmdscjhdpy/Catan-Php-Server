@@ -1,8 +1,4 @@
 <?php
-class test{
-    public static $a=3;
-    public static function go(){
-        return test::$a;
-    }
-}
-echo test::go();
+$a=array();
+array_push($a,3);
+var_dump($a);

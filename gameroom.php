@@ -186,7 +186,37 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'gameon':
             $proessed=1;
-            $bc=$this->data->startgame();//此处还没实现
+            $nowplayer=0;
+            $info=getInfoFromIp($ip);
+            $i=0;
+            for(;$i<MaxPlayer;$i++)
+            {
+                if($roomdata[$info['roomnum']]->gameid[$i]!=null)
+                {
+                    if($i==$roomdata[$info['roomnum']]->hostindex)//
+                    {
+                        $nowplayer++;
+                        continue;//房主不需要准备
+                    }
+                    if($roomdata[$info['roomnum']]->gameready[$i]==1)$nowplayer++;
+                    else {
+                        $i=-1;
+                        break;//有玩家没准备好
+                    }
+                }
+            }
+            if($i==-1)
+            {
+                $retval['head']='error';
+                $retval['showmsg']="【系统提示】还有玩家没有准备好！\n";
+                break;
+            }else if ($nowplayer<MinPlayer) {
+                $retval['head']='error';
+                $retval['showmsg']="【系统提示】人数不足以开启这个游戏！\n";
+                break;
+            }
+            //检验通过，开始游戏
+            $bc=$roomdata[$info['roomnum']]->data->startgame();
             //调用游戏初始化引擎
         break;
     }
@@ -218,7 +248,9 @@ function delItemByKey(&$arr, $key){
     } 
     return $arr; 
 }
-
+//$roomdata['test']=new gameroom($ser);
+//$test=$roomdata['test']->data->startgame();
+//die;
 while (true) {
     $ser->runOnce();
     //处理断线情况
