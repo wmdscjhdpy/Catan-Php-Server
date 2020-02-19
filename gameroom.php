@@ -6,6 +6,7 @@ require_once './catanserver.php';
 $ser=new SocketService();
 $roomdata=null;
 const MaxPlayer=4;//定义房间最大游玩数
+const MinPlayer=2;//定义这种游戏最少玩家数 如果和maxplayer一样则必须满房间的人才可以开局
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
     public static $ser;//存放服务器信息
@@ -56,11 +57,11 @@ class gameroom{
         {//转移房主权利
             $roomdata[$roomnum]->hostindex=$i;
             $hostmsg['head']='priviliege';
-            $hostmsg['showmsg']="由于前房主离开，你现在是新的房主\n";
+            $hostmsg['showmsg']="【系统提示】由于前房主离开，你现在是新的房主\n";
             $roomdata[$roomnum]->sendDataByIndex($i,$hostmsg);
         }
         $retval['head']='leave';
-        $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间\n";
+        $retval['showmsg']="【系统提示】玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间\n";
         $retval['index']=$index;
         $roomdata[$roomnum]->broadcast($retval);
     }
@@ -152,22 +153,21 @@ function dataHandle($rawmsg,$ip)
                 $roomdata[$msg['room']]=new gameroom($ser);
                 $retval['head']='priviliege';
                 $roomdata[$msg['room']]->hostindex=0;//房主是第一位
-                $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";//
+                $retval['showmsg']="【系统提示】您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";//
             }
             //var_dump($roomdata[$msg['room']]);
             $seat=$roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);
             if($seat==-1)
             {
                 $retval['head']='error';
-                $retval['showmsg']="当前房间已满！请选择其他房间\n";
+                $retval['showmsg']="【系统提示】当前房间已满！请选择其他房间\n";
             }else{
                 //如果房间有其他人则向该用户给出其他用户的信息
                 $roomdata[$msg['room']]->sendOtherUserInfo($ip);
-                sleep(1);
                 $bc['head']='enter';
                 $bc['index']=$seat;
                 $bc['nickname']=$msg['nickname'];
-                $bc['showmsg']="欢迎".$msg['nickname']."进入房间\n";
+                $bc['showmsg']="【系统提示】欢迎".$msg['nickname']."进入房间\n";
             }
         break;
         case 'ready':
@@ -182,6 +182,7 @@ function dataHandle($rawmsg,$ip)
             //注意房主权利转移
             $proessed=1;
             gameroom::leaveroom($ip);
+            $retval['head']='leavesuccess';
         break;
         case 'gameon':
             $proessed=1;
