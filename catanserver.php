@@ -117,8 +117,8 @@ class SocketService
       $masks = substr($buffer, 4, 4);
       $data = substr($buffer, 8);
     } else if ($len === 127) {
-      $masks = substr($buffer, 10, 4);
-      $data = substr($buffer, 14);
+      $masks = substr($buffer, 6, 4);
+      $data = substr($buffer, 10);
     } else {
       $masks = substr($buffer, 2, 4);
       $data = substr($buffer, 6);

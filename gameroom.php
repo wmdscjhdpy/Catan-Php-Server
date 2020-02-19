@@ -8,12 +8,13 @@ $roomdata=null;
 const MaxPlayer=4;//定义房间最大游玩数
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
+    static public $ser;//存放服务器信息
+
     public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
     public $gameready;//array 座位号索引 代表玩家准备信息
     public $hostindex;//房主索引
     public $data;//存放房间游戏信息
-    public $ser;//存放服务器信息
     public function __construct($linkserver){
         $this->data=new gamedata();
         $this->ser=$linkserver;
@@ -47,10 +48,18 @@ class gameroom{
         {
             if($roomdata[$roomnum]->gameid[$i]!=null)break;
         }
+        //此时i=一个存活的人的index或Maxplayer
         if($i==MaxPlayer)
         {//删除该房间
             delItemByKey($roomdata,$roomnum);
             return;
+        }else if($roomdata[$roomnum]->hostindex==$index)
+        {//转移房主权利
+            $roomdata[$roomnum]->hostindex=$i;
+            $hostmsg['head']='priviliege';
+            $hostmsg['showmsg']='由于前房主离开，你现在是新的房主';
+            $json=json_encode($hostmsg,JSON_UNESCAPED_UNICODE);
+            gameroom::$ser->send($roomdata[$roomnum]->gameid[$i],$json);
         }
         $retval['head']='leave';
         $retval['showmsg']="玩家".$roomdata[$roomnum]->nicklist[$index]."离开了房间";
@@ -136,13 +145,13 @@ function dataHandle($rawmsg,$ip)
     //房间管理用的switch
     switch($msg['head'])
     {
-        case 'enter':
+        case 'enter'://进入房间的事件
             $proessed=1;
             if(!isset($roomdata[(string)$msg['room']]))
             {//如果不存在该房间则创建该房间
                 $roomdata[$msg['room']]=new gameroom($ser);
                 $retval['head']='priviliege';
-                $this->hostindex=0;//房主是第一位
+                $roomdata[$msg['room']]->hostindex=0;//房主是第一位
                 $retval['showmsg']="您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";//
             }
             //var_dump($roomdata[$msg['room']]);
@@ -163,10 +172,10 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'ready':
             $proessed=1;
-            $index=getInfoFromIp($ip)['index'];
-            $this->gameready[]=$msg['flag'];
+            $info=getInfoFromIp($ip);
+            $roomdata[$info['roomnum']]->gameready[$info['index']]=$msg['flag'];
             $bc['head']='ready';
-            $bc['index']=$index;
+            $bc['index']=$info['index'];
             $bc['flag']=$msg['flag'];
         break;
         case 'leave':
