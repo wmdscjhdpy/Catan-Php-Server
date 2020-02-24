@@ -212,10 +212,10 @@ class gamedata{
             $retdata['node'][$j]['belongto']=-1;
             $retdata['node'][$j]['building']='blank';
         }
-        for($k=0;$k<count($rawroadlist);$j++)
+        for($k=0;$k<count($rawroadlist);$k++)
         {
-            $retdata['node'][$k]['Pos']=$rawroadlist[$k];
-            $retdata['node'][$k]['belongto']=-1;
+            $retdata['road'][$k]['Pos']=$rawroadlist[$k];
+            $retdata['road'][$k]['belongto']=-1;
         }
         //添加玩家信息
         for($l=0;$l<MaxPlayer;$l++)

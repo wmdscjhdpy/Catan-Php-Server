@@ -194,7 +194,7 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'gameon':
             $proessed=1;
-            $nowplayer=null;
+            $nowplayer=array();
             $info=getInfoFromIp($ip);
             $i=0;
             for(;$i<MaxPlayer;$i++)
@@ -225,7 +225,7 @@ function dataHandle($rawmsg,$ip)
             }
             //检验通过，开始游戏
             $bc=$roomdata[$info['roomnum']]->data->startgame($nowplayer);
-            $bc=$roomdata[$info['roomnum']]->isplaying=1;//表示该房间进入游玩模式
+            $roomdata[$info['roomnum']]->isplaying=1;//表示该房间进入游玩模式
             $bc['showmsg']="游戏正式开始！\n";
             //调用游戏初始化引擎
         break;
