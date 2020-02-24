@@ -15,6 +15,7 @@ class gamedata{
     子变量有5个，分别为iron,wheat,forest,stone,grass 其值代表能收获多少。
     */
     public $rollhandle; 
+    public $startrolldata=array();//决定谁先放房子的骰子数据
 
     public function __construct($room){
         $this->room=$room;
@@ -26,7 +27,13 @@ class gamedata{
         $nodeid=''.$X.$Y;
         return $nodeid;
     }
-    
+    public function getNextPlayer($index){//将当前回合转移给下一个玩家
+        do {
+            $index++;
+            if($index==MaxPlayer)$index-=MaxPlayer;
+        } while ($this->publicdata['player'][$index]['status']==null);
+        return $index;
+    }
     public function calcRoadId($Pos){//给每一个道路一个唯一编号
         $roadid;
         $X=($Pos[0]['x']+$Pos[1]['x'])/2;
@@ -202,8 +209,35 @@ class gamedata{
                 $retdata['player'][$l]['status']=null;
             }
         }
+        $retdata['status']['process']=1;
+        //TODO:随机顺序
+        $retdata['status']['turn']=0;
         $this->publicdata=$retdata;//存储为公有数据
+        $this->setNextPlayer();//寻找下一个有效的玩家开始扔骰子
         $retdata['head']='startgame';//作为数据头
         $this->room->broadcast($retdata);
+    }
+    public function handleGame($msg,$index){
+        switch ($msg['head']) {
+            case 'roll':
+                $ret['head']='roll';
+                $ret['roll']=array(rand(1,6),rand(1,6));
+                $value=$ret['roll'][0]+$ret['roll'][1];
+                $ret['showmsg']=$this->room->nicklist[$index]."摇到了点数".$value."\n";
+                $this->room->broadcast($msg);
+                switch ($this->publicdata['status']['process']) {//判断游戏状态
+                    case 0://正处于扔骰子决定先后的时候
+                        
+                        break;
+                    
+                    default:
+                        # code...
+                        break;
+                }
+                break;
+            default:
+                # code...
+                break;
+        }
     }
 }

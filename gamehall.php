@@ -144,7 +144,7 @@ class gamehall{
         if(!$proessed)
         {//如果还未处理的话 说明是游戏数据，调用房间内的data里的handleGame方法
             $info=$this->getInfoFromIp($ip);
-            $this->roomdata[$info['roomnum']]->data->handleGame();
+            $this->roomdata[$info['roomnum']]->data->handleGame($msg,$info['index']);
         }
         //信息分发
         if($retval)
