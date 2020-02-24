@@ -15,7 +15,7 @@ class gameroom{
     public $hostindex;//房主索引
     public $data;//存放房间游戏信息
     public function __construct($linkserver){
-        $this->data=new gamedata();
+        $this->data=new gamedata($this);
         $this->ser=$linkserver;
     }
     public function enterRoom($ip,$nickname)//登记玩家进入房间

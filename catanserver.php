@@ -67,7 +67,7 @@ class SocketService
           echo "Client ip:{$ip}  \n";
         } else {//老客户端的数据
           $byte = socket_recv($_sock, $buffer, 2048, 0);
-          if($byte < 7)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
+          if($byte < 9)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
           {
             $this->disconnected_clients[$key]=1;//标记断线
             echo "$key disconnected\n";

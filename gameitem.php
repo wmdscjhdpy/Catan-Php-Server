@@ -5,40 +5,9 @@ require_once './gameroom.php';
 const colornum=array('blue','green','red','yellow');
 //资源对应数字          0       1       2       3       4
 const kindnum=array('forest','iron','grass','wheat','stone');
-//以下是游戏元素
-class hexagon{
-    public $Pos;
-    public $kind='desert';//资源种类
-    public $isBlock=false;//是否被强盗压住
-    public $number;//资源数字
-    public function __construct($_Pos)
-    {
-        $this->Pos=$_Pos;
-    }
-}
-class node{
-    public $Pos;//是三元素数组
-    public $belongto='nobody';//判断被谁占有
-    public $building='blank';
-    public $port='none';//港口代号
-    public function __construct($_Pos)
-    {
-        $this->Pos=$_Pos;
-    }
-}
-class road{
-    public $Pos;//是二元素数组
-    public $belongto='nobody';//判断被谁占有
-    public function __construct($_Pos)
-    {
-        $this->Pos=$_Pos;
-    }
-}
 //以下是游戏数据库
 class gamedata{
-    public $hexagonlist;//存储六边形对象
-    public $nodelist;//存储结点对象
-    public $roadlist;//存储道路对象
+    public $room;//存放房间信息
     public $publicdata;//玩家的公有数据
     /*
     骰子事件指引对象，键为骰子数，值仍为一个array
@@ -46,6 +15,10 @@ class gamedata{
     子变量有5个，分别为iron,wheat,forest,stone,grass 其值代表能收获多少。
     */
     public $rollhandle; 
+
+    public function __construct($room){
+        $this->room=$room;
+    }
     public function calcNodeId($Pos){
         $nodeid;
         $X=($Pos[0]['x']+$Pos[1]['x']+$Pos[2]['x'])/3;
@@ -189,19 +162,18 @@ class gamedata{
         $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone'];//注意这个是除掉了沙漠的
         for($i=0;$i<count($rawhexagon);$i++)
         {
-            $this->hexagonlist[$i]=new hexagon($rawhexagon[$i]);
             $retdata['hexagon'][$i]['Pos']=$rawhexagon[$i];
             //先分配数字
-            $this->hexagonlist[$i]->number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-            $retdata['hexagon'][$i]['number']=$this->hexagonlist[$i]->number;
+            $number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+            $retdata['hexagon'][$i]['number']=$number;
             //分配资源
-            if($this->hexagonlist[$i]->number==7)
+            if($number==7)
             {
-                $this->hexagonlist[$i]->kind='desert';
+                $kind='desert';
                 $retdata['hexagon'][$i]['kind']='desert';
             }else{
-                $this->hexagonlist[$i]->kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-                $retdata['hexagon'][$i]['kind']=$this->hexagonlist[$i]->kind;
+                $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+                $retdata['hexagon'][$i]['kind']=$kind;
             }
             //至此地区已经布置完成，可以发送到客户端
         }
@@ -230,9 +202,8 @@ class gamedata{
                 $retdata['player'][$l]['status']=null;
             }
         }
+        $this->publicdata=$retdata;//存储为公有数据
         $retdata['head']='startgame';//作为数据头
-        return $retdata;
+        $this->room->broadcast($retdata);
     }
 }
-
-

@@ -23,11 +23,12 @@ class gamehall{
                 return $ret;
             }
         }
-        echo "error: no ip in the room\n";
+        return null;
     }
     public function leaveroom($ip)
     {
         $roomnum=$this->getInfoFromIp($ip)['roomnum'];
+        if($roomnum==null)return;//此人不在任何房间里 直接关闭
         $index=@array_search($ip,$this->roomdata[$roomnum]->gameid);//找出该ip的索引号
         $this->roomdata[$roomnum]->gameid[$index]=null;//清除该id
         $i=0;
@@ -38,7 +39,7 @@ class gamehall{
         //此时i=一个存活的人的index或Maxplayer
         if($i==MaxPlayer)
         {//删除该房间
-            $this->delItemByKey($this->roomdata,$roomnum);
+            delItemByKey($this->roomdata,$roomnum);
             return;
         }else if($this->roomdata[$roomnum]->hostindex==$index)
         {//转移房主权利
@@ -56,9 +57,9 @@ class gamehall{
     {
         $msg=json_decode($rawmsg,true);//第二个参数设为true能把msg变成一个数组
         //var_dump($msg);
-        $retval=NULL;//对发信息过来的人返回的具体信息
-        $bc=NULL;//当需要广播信息时在此填入值
-        $proessed=0;//判断msg是否被处理
+        $retval=null;//对发信息过来的人返回的具体信息
+        $bc=null;//当需要广播信息时在此填入值
+        $proessed=null;//判断msg是否被处理
         //房间管理用的switch
         switch($msg['head'])
         {
@@ -136,11 +137,14 @@ class gamehall{
                     break;
                 }
                 //检验通过，开始游戏
-                $bc=$this->roomdata[$info['roomnum']]->data->startgame($nowplayer);
+                $this->roomdata[$info['roomnum']]->data->startgame($nowplayer);
                 $this->roomdata[$info['roomnum']]->isplaying=1;//表示该房间进入游玩模式
-                $bc['showmsg']="游戏正式开始！\n";
-                //调用游戏初始化引擎
             break;
+        }
+        if(!$proessed)
+        {//如果还未处理的话 说明是游戏数据，调用房间内的data里的handleGame方法
+            $info=$this->getInfoFromIp($ip);
+            $this->roomdata[$info['roomnum']]->data->handleGame();
         }
         //信息分发
         if($retval)
