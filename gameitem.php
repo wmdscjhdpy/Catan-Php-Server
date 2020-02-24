@@ -1,4 +1,5 @@
 <?php
+require_once './gameroom.php';
 //namespace catan;
 //定义0-3为 蓝绿红黄
 const colornum=array('blue','green','red','yellow');
@@ -38,6 +39,7 @@ class gamedata{
     public $hexagonlist;//存储六边形对象
     public $nodelist;//存储结点对象
     public $roadlist;//存储道路对象
+    public $publicdata;//玩家的公有数据
     /*
     骰子事件指引对象，键为骰子数，值仍为一个array
     二级键代表玩家编号，值仍为一个对象
@@ -126,7 +128,8 @@ class gamedata{
         }
         return $ret;
     }
-    public function startgame()//初始化游戏地图
+    //因为思路经过多次改版，因此该函数有很大的提升空间
+    public function startgame($nowplayer)//初始化游戏地图
     {
         $ret;
         $it['x']=0;
@@ -181,6 +184,7 @@ class gamedata{
                 }
             }
         }
+        //地图初始元素已决定，开始分配属性
         $hexagonNumberlist=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12,7];
         $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone'];//注意这个是除掉了沙漠的
         for($i=0;$i<count($rawhexagon);$i++)
@@ -201,10 +205,32 @@ class gamedata{
             }
             //至此地区已经布置完成，可以发送到客户端
         }
-        ///TODO :港口
-        $retdata['node']=$rawnodelist;
-        $retdata['road']=$rawroadlist;
-        $retdata['head']='startgame';
+        //节点与道路属性赋予
+        for($j=0;$j<count($rawnodelist);$j++)
+        {
+            $retdata['node'][$j]['Pos']=$rawnodelist[$j];
+            $retdata['node'][$j]['belongto']=-1;
+            $retdata['node'][$j]['building']='blank';
+        }
+        for($k=0;$k<count($rawroadlist);$j++)
+        {
+            $retdata['node'][$k]['Pos']=$rawroadlist[$k];
+            $retdata['node'][$k]['belongto']=-1;
+        }
+        //添加玩家信息
+        for($l=0;$l<MaxPlayer;$l++)
+        {
+            if(in_array($l,$nowplayer))
+            {
+                $retdata['player'][$l]['status']='online';
+                $retdata['player'][$l]['resources']=0;
+                $retdata['player'][$l]['card']=0;
+                $retdata['player'][$l]['soldier']=0;
+            }else{
+                $retdata['player'][$l]['status']=null;
+            }
+        }
+        $retdata['head']='startgame';//作为数据头
         return $retdata;
     }
 }

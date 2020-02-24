@@ -10,6 +10,7 @@ const MinPlayer=2;//定义这种游戏最少玩家数 如果和maxplayer一样�
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
     public static $ser;//存放服务器信息
+    public $isplaying=0;//表示该房间是否在游玩
     public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
     public $gameready;//array 座位号索引 代表玩家准备信息
@@ -22,6 +23,10 @@ class gameroom{
     public function enterRoom($ip,$nickname)//登记玩家进入房间
     {
         $i=0;
+        if($this->isplaying==1)
+        {
+            return -2;//表示当前桌已经在游玩
+        }
         for(;$i<MaxPlayer;$i++)
         {
             if($this->gameid[$i]==null)break;
@@ -161,6 +166,9 @@ function dataHandle($rawmsg,$ip)
             {
                 $retval['head']='error';
                 $retval['showmsg']="【系统提示】当前房间已满！请选择其他房间\n";
+            }else if($seat==-2){
+                $retval['head']='error';
+                $retval['showmsg']="【系统提示】当前房间正在游玩！请选择其他房间\n";
             }else{
                 //如果房间有其他人则向该用户给出其他用户的信息
                 $roomdata[$msg['room']]->sendOtherUserInfo($ip);
@@ -186,7 +194,7 @@ function dataHandle($rawmsg,$ip)
         break;
         case 'gameon':
             $proessed=1;
-            $nowplayer=0;
+            $nowplayer=null;
             $info=getInfoFromIp($ip);
             $i=0;
             for(;$i<MaxPlayer;$i++)
@@ -195,10 +203,10 @@ function dataHandle($rawmsg,$ip)
                 {
                     if($i==$roomdata[$info['roomnum']]->hostindex)//
                     {
-                        $nowplayer++;
+                        array_push($nowplayer,$roomdata[$info['roomnum']]->hostindex);//将房主添加到参与游戏的玩家列表
                         continue;//房主不需要准备
                     }
-                    if($roomdata[$info['roomnum']]->gameready[$i]==1)$nowplayer++;
+                    if($roomdata[$info['roomnum']]->gameready[$i]==1)array_push($nowplayer,$i);//将该玩家添加到参与游戏的玩家列表内
                     else {
                         $i=-1;
                         break;//有玩家没准备好
@@ -210,13 +218,15 @@ function dataHandle($rawmsg,$ip)
                 $retval['head']='error';
                 $retval['showmsg']="【系统提示】还有玩家没有准备好！\n";
                 break;
-            }else if ($nowplayer<MinPlayer) {
+            }else if (count($nowplayer)<MinPlayer) {
                 $retval['head']='error';
                 $retval['showmsg']="【系统提示】人数不足以开启这个游戏！\n";
                 break;
             }
             //检验通过，开始游戏
-            $bc=$roomdata[$info['roomnum']]->data->startgame();
+            $bc=$roomdata[$info['roomnum']]->data->startgame($nowplayer);
+            $bc=$roomdata[$info['roomnum']]->isplaying=1;//表示该房间进入游玩模式
+            $bc['showmsg']="游戏正式开始！\n";
             //调用游戏初始化引擎
         break;
     }
