@@ -1,4 +1,4 @@
 <?php
 $a=array();
-array_push($a,3);
+$a[1]='asdf';
 var_dump($a);

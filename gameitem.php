@@ -3,12 +3,14 @@ require_once './gameroom.php';
 //namespace catan;
 //定义0-3为 蓝绿红黄
 const colornum=array('blue','green','red','yellow');
-//资源对应数字          0       1       2       3       4
-const kindnum=array('forest','iron','grass','wheat','stone');
+const colornumzh=array('蓝色','绿色','红色','黄色');
+//资源对应数字          0       1       2       3       4       5          6        7              8            9
+const kindnum=array('forest','iron','grass','wheat','stone','solders','harvest','monopoly','roadbuilding','winpoint');
 //以下是游戏数据库
 class gamedata{
     public $room;//存放房间信息
     public $publicdata;//玩家的公有数据
+    public $pridata;//玩家的私有数据
     /*
     骰子事件指引对象，键为骰子数，值仍为一个array
     二级键代表玩家编号，值仍为一个对象
@@ -27,7 +29,11 @@ class gamedata{
         $nodeid=''.$X.$Y;
         return $nodeid;
     }
-    public function getNextPlayer($index){//将当前回合转移给下一个玩家
+    public function getNextPlayer($index){//将当前回合转移给下一个玩家 不输入参数则index为当前玩家
+        if($index==null)
+        {
+            $index=$this->publicdata['status']['turn'];
+        }
         do {
             $index++;
             if($index==MaxPlayer)$index-=MaxPlayer;
@@ -196,7 +202,7 @@ class gamedata{
             $retdata['road'][$k]['Pos']=$rawroadlist[$k];
             $retdata['road'][$k]['belongto']=-1;
         }
-        //添加玩家信息
+        //添加玩家信息和为玩家添加私有数据
         for($l=0;$l<MaxPlayer;$l++)
         {
             if(in_array($l,$nowplayer))
@@ -205,35 +211,44 @@ class gamedata{
                 $retdata['player'][$l]['resources']=0;
                 $retdata['player'][$l]['card']=0;
                 $retdata['player'][$l]['soldier']=0;
+                for($i=0;$i<10;$i++)
+                    $this->pridata[$l][kindnum[$i]]=0;
             }else{
                 $retdata['player'][$l]['status']=null;
             }
         }
         $retdata['status']['process']=1;
-        //TODO:随机顺序
         $retdata['status']['turn']=0;
+        $retdata['status']['extra']=0;
         $this->publicdata=$retdata;//存储为公有数据
-        $this->setNextPlayer();//寻找下一个有效的玩家开始扔骰子
+        //随机先手顺序
+        $retdata['showmsg']="系统将进行随机分配房子置放顺序\n";
+        for($i=0;$i<MaxPlayer;$i++)
+        {
+            if($this->publicdata['player'][$i]['status']!=null)array_push($this->startrolldata,$i);//添加存在的玩家的索引号
+        }
+        shuffle($this->startrolldata);//打乱摇骰子顺序
+        for($i=0;$i<count($this->startrolldata);$i++)
+        {
+            $retdata['showmsg'].="第".($i+1)."个放房子的是".colornumzh[$this->startrolldata[$i]]."玩家\n";
+        }
+        $this->publicdata['status']['turn']=$this->startrolldata[0];//给第一个玩家放房子
         $retdata['head']='startgame';//作为数据头
         $this->room->broadcast($retdata);
     }
+
+    //核心处理函数
     public function handleGame($msg,$index){
         switch ($msg['head']) {
             case 'roll':
+                //接收到扔骰子指令，
                 $ret['head']='roll';
                 $ret['roll']=array(rand(1,6),rand(1,6));
                 $value=$ret['roll'][0]+$ret['roll'][1];
                 $ret['showmsg']=$this->room->nicklist[$index]."摇到了点数".$value."\n";
                 $this->room->broadcast($msg);
-                switch ($this->publicdata['status']['process']) {//判断游戏状态
-                    case 0://正处于扔骰子决定先后的时候
-                        
-                        break;
-                    
-                    default:
-                        # code...
-                        break;
-                }
+                //收取资源
+                $this->publicdata['status']['process']=4;//进入建设环节
                 break;
             default:
                 # code...

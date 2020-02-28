@@ -1,7 +1,7 @@
 <?php
 class SocketService
 {
-  private $address = '192.168.2.5';
+  private $address = '192.168.2.4';
   private $port = 2333;
   private $_sockets;
   //以下的变量需要自己管理
@@ -66,11 +66,12 @@ class SocketService
           $this->clients[$ip] = $newClient;
           echo "Client ip:{$ip}  \n";
         } else {//老客户端的数据
-          $byte = socket_recv($_sock, $buffer, 2048, 0);
+          $byte = socket_recv($_sock, $buffer, 2048, 0);//TODO:如果发生接受错误，将得到null，记得处理
           if($byte < 9)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
           {
             $this->disconnected_clients[$key]=1;//标记断线
             echo "$key disconnected\n";
+            continue;
           }
           $this->recv_data[$key] = $this->message($buffer);
         }
