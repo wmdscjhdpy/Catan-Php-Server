@@ -22,12 +22,21 @@ class gamedata{
     public function __construct($room){
         $this->room=$room;
     }
-    public function calcNodeId($Pos){
-        $nodeid;
-        $X=($Pos[0]['x']+$Pos[1]['x']+$Pos[2]['x'])/3;
-        $Y=($Pos[0]['y']+$Pos[1]['y']+$Pos[2]['y'])/3;
-        $nodeid=''.$X.$Y;
-        return $nodeid;
+    public function PosSort(&$input)//为了避免node和array索引不对就造成不等的问题而设的sort函数
+    {
+        //sort原则,y最大的在前面，如若相等，则x最大的在前面
+        for($i=0;$i<count($input)-1;$i++)
+        {
+            for($j=$i+1;$j<count($input);$j++)
+            {
+                if($input[$i]['y']<$input[$j]['y'] || ($input[$i]['y']==$input[$j]['y'] && $input[$i]['x']<$input[$j]['x']))
+                {
+                    $tmp=$input[$i];
+                    $input[$i]=$input[$j];
+                    $input[$j]=$tmp;
+                }
+            }
+        }
     }
     public function getNextPlayer($index){//将当前回合转移给下一个玩家 不输入参数则index为当前玩家
         if($index==null)
@@ -40,14 +49,6 @@ class gamedata{
         } while ($this->publicdata['player'][$index]['status']==null);
         return $index;
     }
-    public function calcRoadId($Pos){//给每一个道路一个唯一编号
-        $roadid;
-        $X=($Pos[0]['x']+$Pos[1]['x'])/2;
-        $Y=($Pos[0]['y']+$Pos[1]['y'])/2;
-        $roadid=''.$X.$Y;
-        return $roadid;
-    }
-    
     public function getNearPosition($P,$deg){//获取临近六边形坐标
         $newP['x']=$P['x'];
         $newP['y']=$P['y'];
@@ -85,18 +86,18 @@ class gamedata{
         }
         return $newP;
     }
-    
     public function getAllNodeNearby($P)//获取和这个六边形相邻的所有节点
     {
         $P0=$P;
-        $ret['val']=array();
-        $ret['chk']=array();
+        $ret=array();
         for( $i=0;$i<360;$i+=60)
         {
-             $P1=$this->getNearPosition($P,$i);
-             $P2=$this->getNearPosition($P,$i+60);
-            array_push($ret['val'],[$P0,$P1,$P2]);
-            array_push($ret['chk'],$this->calcNodeId([$P0,$P1,$P2]));
+            $P1=$this->getNearPosition($P,$i);
+            $P2=$this->getNearPosition($P,$i+60);
+            $it=array($P0,$P1,$P2);
+            $this->PosSort($it);
+            var_dump($it);
+            array_push($ret,$it);
         }
         return $ret;
     }
@@ -104,13 +105,13 @@ class gamedata{
     public function getAllRoadNearBy($P)//获取该六边形临近的所有节点
     {
         $P0=$P;
-        $ret['val']=array();
-        $ret['chk']=array();
+        $ret=array();
         for( $i=0;$i<360;$i+=60)
         {
-             $P1=$this->getNearPosition($P,$i);
-            array_push($ret['val'],[$P0,$P1]);
-            array_push($ret['chk'],$this->calcRoadId([$P0,$P1]));
+            $P1=$this->getNearPosition($P,$i);
+            $it=array($P0,$P1);
+            $this->PosSort($it);
+            array_push($ret,$it);
         }
         return $ret;
     }
@@ -138,21 +139,18 @@ class gamedata{
             }
         }
         $rawnodelist=array();
-        $nodechklist=array();
         //开始生成节点
         for($i=0;$i<count($rawhexagon);$i++)
         {
             $tmpnodelist=$this->getAllNodeNearby($rawhexagon[$i]);//获取节点
             for( $l=0;$l<6;$l++)
             {   
-                if(!in_array($tmpnodelist['chk'][$l],$nodechklist))//不存在这个node
+                if(!in_array($tmpnodelist[$l],$rawnodelist))//不存在这个node
                 {
-                    array_push($nodechklist,$tmpnodelist['chk'][$l]);
-                    array_push($rawnodelist,$tmpnodelist['val'][$l]);
+                    array_push($rawnodelist,$tmpnodelist[$l]);
                 }
             }
         }    
-        $roadchklist=array();
         $rawroadlist=array();
         //开始生成道路
         for($i=0;$i<count($rawhexagon);$i++)
@@ -160,10 +158,9 @@ class gamedata{
             $tmproadlist=$this->getAllRoadNearBy($rawhexagon[$i]);//获取节点
             for( $l=0;$l<6;$l++)
             {   
-                if(!in_array($tmproadlist['chk'][$l],$roadchklist))//不存在这个road
+                if(!in_array($tmproadlist[$l],$rawroadlist))//不存在这个road
                 {
-                    array_push($roadchklist,$tmproadlist['chk'][$l]);
-                    array_push($rawroadlist,$tmproadlist['val'][$l]);
+                    array_push($rawroadlist,$tmproadlist[$l]);
                 }
             }
         }
@@ -200,7 +197,7 @@ class gamedata{
             $this->publicdata['road'][$k]['belongto']=-1;
         }
     }
-    public function initPlayer()//添加玩家信息和为玩家添加私有数据=
+    public function initPlayer($nowplayer)//添加玩家信息和为玩家添加私有数据=
     {
         for($l=0;$l<MaxPlayer;$l++)
         {
@@ -223,7 +220,7 @@ class gamedata{
     public function startgame($nowplayer)//初始化游戏地图
     {
         $this->initMap();
-        $this->initPlayer();
+        $this->initPlayer($nowplayer);
         $retdata=$this->publicdata;//准备返回数据
         //随机先手顺序
         $retdata['head']='startgame';//作为数据头
@@ -256,7 +253,7 @@ class gamedata{
                 $this->publicdata['status']['process']=4;//进入建设环节
                 break;
             default:
-                # code...
+                var_dump($msg);
                 break;
         }
     }

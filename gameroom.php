@@ -4,7 +4,7 @@ require_once './gameitem.php';
 require_once './catanserver.php';
 
 const MaxPlayer=4;//定义房间最大游玩数
-const MinPlayer=2;//定义这种游戏最少玩家数 如果和maxplayer一样则必须满房间的人才可以开局
+const MinPlayer=1;//定义这种游戏最少玩家数 如果和maxplayer一样则必须满房间的人才可以开局 测试用改成了1
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
     public static $ser;//存放服务器信息
