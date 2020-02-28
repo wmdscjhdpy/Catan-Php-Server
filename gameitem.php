@@ -114,13 +114,10 @@ class gamedata{
         }
         return $ret;
     }
-    //因为思路经过多次改版，因此该函数有很大的提升空间
-    public function startgame($nowplayer)//初始化游戏地图
+    public function initMap()
     {
-        $ret;
         $it['x']=0;
         $it['y']=0;
-        $rawhexagon=null;
         $rawhexagon[0]=$it;
         //大循环
         for($i=1;$i<=2;$i++)
@@ -175,53 +172,61 @@ class gamedata{
         $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone'];//注意这个是除掉了沙漠的
         for($i=0;$i<count($rawhexagon);$i++)
         {
-            $retdata['hexagon'][$i]['Pos']=$rawhexagon[$i];
+            $this->publicdata['hexagon'][$i]['Pos']=$rawhexagon[$i];
             //先分配数字
             $number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-            $retdata['hexagon'][$i]['number']=$number;
+            $this->publicdata['hexagon'][$i]['number']=$number;
             //分配资源
             if($number==7)
             {
                 $kind='desert';
-                $retdata['hexagon'][$i]['kind']='desert';
+                $this->publicdata['hexagon'][$i]['kind']='desert';
             }else{
                 $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-                $retdata['hexagon'][$i]['kind']=$kind;
+                $this->publicdata['hexagon'][$i]['kind']=$kind;
             }
             //至此地区已经布置完成，可以发送到客户端
         }
         //节点与道路属性赋予
         for($j=0;$j<count($rawnodelist);$j++)
         {
-            $retdata['node'][$j]['Pos']=$rawnodelist[$j];
-            $retdata['node'][$j]['belongto']=-1;
-            $retdata['node'][$j]['building']='blank';
+            $this->publicdata['node'][$j]['Pos']=$rawnodelist[$j];
+            $this->publicdata['node'][$j]['belongto']=-1;
+            $this->publicdata['node'][$j]['building']='blank';
         }
         for($k=0;$k<count($rawroadlist);$k++)
         {
-            $retdata['road'][$k]['Pos']=$rawroadlist[$k];
-            $retdata['road'][$k]['belongto']=-1;
+            $this->publicdata['road'][$k]['Pos']=$rawroadlist[$k];
+            $this->publicdata['road'][$k]['belongto']=-1;
         }
-        //添加玩家信息和为玩家添加私有数据
+    }
+    public function initPlayer()//添加玩家信息和为玩家添加私有数据=
+    {
         for($l=0;$l<MaxPlayer;$l++)
         {
             if(in_array($l,$nowplayer))
             {
-                $retdata['player'][$l]['status']='online';
-                $retdata['player'][$l]['resources']=0;
-                $retdata['player'][$l]['card']=0;
-                $retdata['player'][$l]['soldier']=0;
+                $this->publicdata['player'][$l]['status']='online';
+                $this->publicdata['player'][$l]['resources']=0;
+                $this->publicdata['player'][$l]['card']=0;
+                $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
                     $this->pridata[$l][kindnum[$i]]=0;
             }else{
-                $retdata['player'][$l]['status']=null;
+                $this->publicdata['player'][$l]['status']=null;
             }
         }
-        $retdata['status']['process']=1;
-        $retdata['status']['turn']=0;
-        $retdata['status']['extra']=0;
-        $this->publicdata=$retdata;//存储为公有数据
+        $this->publicdata['status']['process']=1;
+        $this->publicdata['status']['turn']=0;
+        $this->publicdata['status']['extra']=0;
+    }
+    public function startgame($nowplayer)//初始化游戏地图
+    {
+        $this->initMap();
+        $this->initPlayer();
+        $retdata=$this->publicdata;//准备返回数据
         //随机先手顺序
+        $retdata['head']='startgame';//作为数据头
         $retdata['showmsg']="系统将进行随机分配房子置放顺序\n";
         for($i=0;$i<MaxPlayer;$i++)
         {
@@ -233,7 +238,7 @@ class gamedata{
             $retdata['showmsg'].="第".($i+1)."个放房子的是".colornumzh[$this->startrolldata[$i]]."玩家\n";
         }
         $this->publicdata['status']['turn']=$this->startrolldata[0];//给第一个玩家放房子
-        $retdata['head']='startgame';//作为数据头
+        $retdata['private']=$this->pridata[$this->startrolldata[0]];//因为大家的私有数据一开始都是一样的，所以直接以第一个玩家的私有数据作为私有数据发给大家
         $this->room->broadcast($retdata);
     }
 
