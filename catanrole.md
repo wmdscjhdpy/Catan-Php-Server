@@ -8,15 +8,22 @@
 ### head:buildhome || head:buildcity
 客户端请求建村/建城
 特征属性:
-- index:请求的玩家索引
 - Pos:请求的位置
 如果条件成立，服务器将会广播建村的位置，不成立则返回提示
 
 ## 服务器发送协议
 ### head:startgame
 地图初始化数据
-会包括publicdata和自己的privatedata
+会包括publicdata和自己的privatedata 合并发送
 
+### head:update
+地图更新数据
+特征属性:
+- type:类型，值可以是private和public
+- key:不定长array,从0开始每个值就是递进的键名
+- data:需要更新的数据的值
+
+## 服务器数据存储格式
 ### publicdata
 **所有游戏公用元素 所有玩家在游戏开始时都会接收到**
 特征属性:
@@ -29,12 +36,12 @@
 - node:是一个索引array，每一个array是一个对象
     其子属性为:
     - Pos:是一个array，拥有三个元素，每一个元素是一个资源点坐标
-    - belongto:是一个index，代表谁占领了这个地方。无人占领是-1
+    - belongto:是一个index，代表谁占领了这个地方。无人占领是-1，
     - building:代表建筑物类型 返回值为blank,home,city
 - road:是一个索引array，每一个array是一个对象
     其子属性为:
     - Pos:是一个道路坐标，是一个array，拥有两个元素，每一个元素是一个资源点坐标
-    - belongto:是一个index，代表谁占领了这个地方。无人占领是-1
+    - belongto:是一个index，代表谁占领了这个地方。无人占领是-1，
 - player:是玩家公共信息，是一个array，array的index代表玩家index
     其子属性为:
     - status:代表该玩家的状态，可以是null代表不参与游戏，online代表正处于游戏中，offline代表离线

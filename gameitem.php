@@ -12,17 +12,17 @@ class gamedata{
     public $publicdata;//玩家的公有数据
     public $pridata;//玩家的私有数据
     /*
-    骰子事件指引对象，键为骰子数，值仍为一个array
-    二级键代表玩家编号，值仍为一个对象
-    子变量有5个，分别为iron,wheat,forest,stone,grass 其值代表能收获多少。
+    资源分配表，键为hexagon的index，值为一个index array，index代表用户index，其值是可获得数量
     */
-    public $rollhandle; 
+    public $resList;
     public $startrolldata=array();//决定谁先放房子的骰子数据
 
     public function __construct($room){
         $this->room=$room;
     }
-    public function PosSort(&$input)//为了避免node和array索引不对就造成不等的问题而设的sort函数
+    //////////////////////////////////////地图操作元素函数
+    //为了避免node和array索引不对就造成不等的问题而设的sort函数 该函数调用频率极高，有空可以注重此处性能
+    public function PosSort(&$input)
     {
         //sort原则,y最大的在前面，如若相等，则x最大的在前面
         for($i=0;$i<count($input)-1;$i++)
@@ -38,16 +38,31 @@ class gamedata{
             }
         }
     }
-    public function getNextPlayer($index){//将当前回合转移给下一个玩家 不输入参数则index为当前玩家
-        if($index==null)
+    public function getIndexByPos($Pos)//通过Pos获取index，hexagon node road通用 如果不在地图里则返回null
+    {
+        if($Pos[1]!=null)
         {
-            $index=$this->publicdata['status']['turn'];
+            if(count($Pos)==2)
+            {
+                for($i=0;$i<count($this->publicdata['road']);$i++)
+                {
+                    if($Pos==$this->publicdata['road'][$i]['Pos'])return $i;
+                }
+            }elseif (count($Pos)==3) {
+                for($i=0;$i<count($this->publicdata['node']);$i++)
+                {
+                    if($Pos==$this->publicdata['node'][$i]['Pos'])return $i;
+                }
+            }else{
+                var_dump($Pos);//出问题了
+            }
+        }else {
+            for($i=0;$i<count($this->publicdata['hexagon']);$i++)
+            {
+                if($Pos==$this->publicdata['hexagon'][$i]['Pos'])return $i;
+            }
         }
-        do {
-            $index++;
-            if($index==MaxPlayer)$index-=MaxPlayer;
-        } while ($this->publicdata['player'][$index]['status']==null);
-        return $index;
+
     }
     public function getNearPosition($P,$deg){//获取临近六边形坐标
         $newP['x']=$P['x'];
@@ -101,8 +116,7 @@ class gamedata{
         }
         return $ret;
     }
-    
-    public function getAllRoadNearBy($P)//获取该六边形临近的所有节点
+    public function getAllRoadNearBy($P)//获取该六边形临近的所有道路
     {
         $P0=$P;
         $ret=array();
@@ -114,6 +128,150 @@ class gamedata{
             array_push($ret,$it);
         }
         return $ret;
+    }
+    //返回节点的类型，根据其道路延伸方式有Y型和人型
+    public function getNodeType($P)
+    {
+        if((abs(($P[0]['y']+$P[2]['y'])/2)-0.5)%2)//偶数就是人型，奇数就是Y型
+        {
+            return 1;//代表y型
+        }else{
+            return 0;//代表人型
+        }
+    }
+    public function getRoadNearByNode($P)//获取节点附近的三条道路 返回长度3的array
+    {
+        $R1=$this->PosSort(array($P[0],$P[1]));
+        $R2=$this->PosSort(array($P[0],$P[2]));
+        $R3=$this->PosSort(array($P[1],$P[2]));
+        return array($R1,$R2,$R3);
+    }
+    public function getNodeConnectRoad($P)//获取道路两边的节点 返回长度2的array 
+    //返回值的[0]总是返回以“人”字形节点扩散时的外节点 参考和@getRoadNearByNode连用时返回的点的规则
+    {
+        //垂直向上的路 sort[0]永远会取到右边的方块
+        if($this->getNearPosition($P[0],180)==$P[1])//
+        {
+            $NP1=$this->getNearPosition($P[0],120);
+            $NP2=$this->getNearPosition($P[0],240);
+            $N1=array($NP1,$P[0],$P[1]);
+            $N2=array($P[0],$P[1],$NP2);
+        }else if($this->getNearPosition($P[0],240)==$P[1])//\这样的路，[0]是右上的方块
+        {
+            $NP1=$this->getNearPosition($P[0],180);
+            $NP2=$this->getNearPosition($P[0],300);
+            $N2=array($P[0],$NP1,$P[1]);
+            $N1=array($P[0],$NP2,$P[1]);
+        }else {//这两种情况都不是的话必是/这样的路了 [0]是左上的方块
+            $NP1=$this->getNearPosition($P[0],0);
+            $NP2=$this->getNearPosition($P[0],240);
+            $N2=array($NP1,$P[0],$P[1]);
+            $N1=array($P[0],$P[1],$NP2);
+        }
+        return array($N1,$N2);
+    }
+    public function chkNodeNear($P)//检查节点附近是否符合“建筑物不能相邻，本身是空地”，如果不符合要求则返回false
+    {
+        $thisindex=$this->getIndexByPos($P);
+        if($this->publicdata['node'][$thisindex]['belongto']!='-1')return false;
+        $road=$this->getRoadNearByNode($P);
+        $nodetype=$this->getNodeType($P);
+        for($i=0;$i<3;$i++)
+        {
+            $nearnode[$i]=$this->getNodeConnectRoad($road[$i]);
+            $chkindex=$this->getIndexByPos($nearnode[i][$nodetype]);
+            if($this->publicdata['node'][$chkindex]['belongto']!='-1')return false;
+        }
+        return true;
+    }
+    public function AddNodeRes($P,$index)//为一个更新的建筑节点更新资源索引表 index是更新用户的index
+    {
+        foreach ($P as $key => $hexagonPos) {
+            $hexagonindex=$this->getIndexByPos($hexagonPos);
+            if($this->resList[$hexagonindex][$index]==null)$this->resList[$hexagonindex][$index]=0;
+            $this->resList[$hexagonindex][$index]+=1;
+        }
+    }
+    public function chkNodeHasRoad($P,$index)//检查节点是否被$index的用户铺过来了，如果铺过来了则返回true
+    {
+        $road=$this->getRoadNearByNode($P);
+        foreach ($road as $key => $value) {
+            $roadindex=$this->getIndexByPos($road[$key]);
+            if($this->publicdata['road'][$roadindex]['belogto']==$index)return true;
+        }
+        return false;
+    }
+    public function buildhome($P,$index,$param=0)//为index修建一个村庄，param如果为1则不耗费资源，且不进行道路检查
+    {
+        $res=&$this->pridata[$index]['resources'];
+        if($this->chkNodeNear($P)==false)return false;
+        if($param==0)
+        {
+            if($this->chkNodeHasRoad($P,$index)==false)return false;
+            if($res['grass']>=1 
+            && $res['wheat']>=1 
+            && $res['forest']>=1 
+            && $res['iron']>=1 )
+            {
+                $res['grass']-=1;
+                $res['wheat']-=1;
+                $res['forest']-=1;
+                $res['iron']-=1;
+            }else{
+                return false;
+            }
+        }
+        $nodeindex=$this->getIndexByPos($P);
+        $this->publicdata['node'][$nodeindex]['belongto']=$index;
+        $this->publicdata['node'][$nodeindex]['building']='home';
+        $this->AddNodeRes($P,$index);
+    }
+    public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且不检查道路要求
+    {
+        $roadindex=$this->getIndexByPos($P);
+        $res=&$this->pridata[$index]['resources'];
+        if($this->publicdata['road'][$roadindex]['belongto']!='-1')return false;
+        if($param==0)
+        {
+            //检查道路要求
+            $tmpnode=$this->getNodeConnectRoad($P);//获得道路两边的节点
+            $roadnear1=$this->getRoadNearByNode($tmpnode[0]);//通过道路两边的节点搜索相邻道路
+            $roadnear2=$this->getRoadNearByNode($tmpnode[1]);
+            $roadnear=array_merge($roadnear1,$roadnear2);//合并两个节点的搜索结果
+            $flag=0;
+            foreach ($roadnear as $key => $road) {
+                $roadindex=$this->getIndexByPos($road);
+                if($this->publicdata['road'][$roadindex]['belongto']==$index)
+                {
+                    $flag=1;
+                    break;
+                }
+            }
+            if($flag==0)return false;
+            //检查资源要求
+            if($res['iron']>=1
+            && $res['forest']>=1)
+            {
+                $res['iron']-=1;
+                $res['forest']-=1;
+            }else{
+                return false;
+            }
+        }
+        $this->publicdata['road'][$roadindex]['belongto']=$index;
+        //TODO:最大道路检查函数
+    }
+    //////////////////////////////////地图整体相关函数
+    public function getNextPlayer($index){//将当前回合转移给下一个玩家 不输入参数则index为当前玩家
+        if($index==null)
+        {
+            $index=$this->publicdata['status']['turn'];
+        }
+        do {
+            $index++;
+            if($index==MaxPlayer)$index-=MaxPlayer;
+        } while ($this->publicdata['player'][$index]['status']==null);
+        return $index;
     }
     public function initMap()
     {
@@ -251,10 +409,17 @@ class gamedata{
                 $this->room->broadcast($msg);
                 //收取资源
                 $this->publicdata['status']['process']=4;//进入建设环节
-                break;
+            break;
+            case 'buildhome':
+                if($this->publicdata['status']['process']<=2)//还处于初期放房子的时候
+                {//这时候不需要耗用资源和道路要求，只需要位置合法即可
+                    if($this->chkNodeNear($msg['Pos']))
+                    
+                }
+            break;
             default:
                 var_dump($msg);
-                break;
+            break;
         }
     }
 }
