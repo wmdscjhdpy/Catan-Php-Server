@@ -8,17 +8,55 @@ const colornumzh=array('蓝色','绿色','红色','黄色');
 const kindnum=array('forest','iron','grass','wheat','stone','solders','harvest','monopoly','roadbuilding','winpoint');
 //以下是游戏数据库
 class gamedata{
-    public $room;//存放房间信息
+    private $room;//存放房间信息
     public $publicdata;//玩家的公有数据
-    public $pridata;//玩家的私有数据
+    private $pridata;//玩家的私有数据
     /*
     资源分配表，键为hexagon的index，值为一个index array，index代表用户index，其值是可获得数量
     */
-    public $resList;
-    public $startrolldata=array();//决定谁先放房子的骰子数据
+    private $resList;
+    private $startrolldata=array();//决定谁先放房子的骰子数据
 
     public function __construct($room){
         $this->room=$room;
+    }
+    //////////////////////////////////////通信操作函数
+    public function updatePublicData($key,$data)//通过将需要更改的publicdata数据转写为key+data的组合 通过这个函数在更改时自动广播更改数据
+    {
+        $it=&$this->publicdata;
+        for($i=0;$i<count($key);$i++)
+        {
+            $it=&$it[$key[$i]];//循环调用引用到最终层
+        }
+        $it=$data;//更改数据
+        $send['head']='update';
+        $send['type']='public';
+        $send['key']=$key;
+        $send['data']=$data;
+        $this->room->broadcast($send);
+    }
+    public function updatePrivateData($key,$data,$index)
+    {
+        $it=&$this->pridata[$index];
+        for($i=0;$i<count($key);$i++)
+        {
+            $it=&$it[$key[$i]];//循环调用引用到最终层
+        }
+        $it=$data;//更改数据
+        $send['head']='update';
+        $send['type']='private';
+        $send['key']=$key;
+        $send['data']=$data;
+        $this->room->sendDataByIndex($index,$send);
+    }
+    public function flushPrivateData($index)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
+    {
+        $it=$data;//更改数据
+        $send['head']='update';
+        $send['type']='private';
+        $send['key']=null;
+        $send['data']=$this->pridata[$index];
+        $this->room->sendDataByIndex($index,$send);
     }
     //////////////////////////////////////地图操作元素函数
     //为了避免node和array索引不对就造成不等的问题而设的sort函数 该函数调用频率极高，有空可以注重此处性能
@@ -54,6 +92,7 @@ class gamedata{
                     if($Pos==$this->publicdata['node'][$i]['Pos'])return $i;
                 }
             }else{
+                debug_print_backtrace();
                 var_dump($Pos);//出问题了
             }
         }else {
@@ -222,9 +261,11 @@ class gamedata{
             }
         }
         $nodeindex=$this->getIndexByPos($P);
-        $this->publicdata['node'][$nodeindex]['belongto']=$index;
-        $this->publicdata['node'][$nodeindex]['building']='home';
         $this->AddNodeRes($P,$index);
+        $this->flushPrivateData($index);
+        $this->updatePublicData(['node',$nodeindex,'belongto'],$index);
+        $this->updatePublicData(['node',$nodeindex,'building'],'home');
+        
     }
     public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且不检查道路要求
     {
@@ -258,7 +299,8 @@ class gamedata{
                 return false;
             }
         }
-        $this->publicdata['road'][$roadindex]['belongto']=$index;
+        $this->flushPrivateData($index);
+        $this->updatePublicData(['road',$roadindex,'belongto'],$index);
         //TODO:最大道路检查函数
     }
     //////////////////////////////////地图整体相关函数
@@ -413,7 +455,7 @@ class gamedata{
             case 'buildhome':
                 if($this->publicdata['status']['process']<=2)//还处于初期放房子的时候
                 {//这时候不需要耗用资源和道路要求，只需要位置合法即可
-                    if($this->chkNodeNear($msg['Pos']))
+                    //if($this->chkNodeNear($msg['Pos']))
                     
                 }
             break;
