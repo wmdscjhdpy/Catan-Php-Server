@@ -313,6 +313,7 @@ class gamedata{
             }
         }
         $this->updatePublicData(['road',$roadindex,'belongto'],$index);
+        return true;
         //TODO:最大道路检查函数
     }
     //地图整体相关函数
@@ -422,6 +423,7 @@ class gamedata{
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
                     $this->pridata[$l][kindnum[$i]]=0;
+                $this->flushPrivateData($l);
             }else{
                 $this->publicdata['player'][$l]['status']=null;
             }
@@ -434,22 +436,24 @@ class gamedata{
     {
         $this->initMap();
         $this->initPlayer($nowplayer);
-        $retdata=$this->publicdata;//准备返回数据
+        $retdata=$this->publicdata;//数据准备完毕，准备加上数据头，返回数据
         //随机先手顺序
         $retdata['head']='startgame';//作为数据头
         $retdata['showmsg']="系统将进行随机分配房子置放顺序\n";
         for($i=0;$i<MaxPlayer;$i++)
         {
-            if($this->publicdata['player'][$i]['status']!=null)array_push($this->startrolldata,$i);//添加存在的玩家的索引号
+            if($this->publicdata['player'][$i]['status']!=null)
+            {
+                array_push($this->startrolldata,$i);//添加存在的玩家的索引号
+            }
         }
         shuffle($this->startrolldata);//打乱摇骰子顺序
         for($i=0;$i<count($this->startrolldata);$i++)
         {
             $retdata['showmsg'].="第".($i+1)."个放房子的是".colornumzh[$this->startrolldata[$i]]."玩家\n";
         }
-        $this->publicdata['status']['turn']=$this->startrolldata[$this->startindex++];//给第一个玩家放房子
-        $retdata['private']=$this->pridata[$this->startrolldata[0]];//因为大家的私有数据一开始都是一样的，所以直接以第一个玩家的私有数据作为私有数据发给大家
         $this->room->broadcast($retdata);
+        $this->updatePublicData(['status','turn'],$this->startrolldata[$this->startindex]);//分配第一个建房子的人
     }
 
     //核心处理函数
@@ -495,6 +499,7 @@ class gamedata{
                     {
                         $ret['head']='error';
                         $ret['showmsg']="无法在这里修路，一开始的路必须放在刚放的村子的附近\n";
+                        $this->room->sendDataByIndex($index,$ret);
                     }else{//路已经成功放下
                         $this->startindex++;
                         if($this->startindex<count($this->startrolldata))
@@ -502,12 +507,14 @@ class gamedata{
                             $this->updatePublicData(['status','turn'],$this->startrolldata[$this->startindex]);//控制权转交给下一位玩家
                             $this->updatePublicData(['status','process'],1);
                         }else if($this->startindex<count($this->startrolldata)*2){//处于第二次放房子了
-                            $this->updatePublicData(['status','turn'],$this->startrolldata[2*count($this->startrolldata-1-$this->startindex)]);//控制权转交给下一位玩家
+                            $this->updatePublicData(['status','turn'],$this->startrolldata[2*count($this->startrolldata)-1-$this->startindex]);//控制权转交给下一位玩家
                             $this->updatePublicData(['status','process'],1);
                         }else{//大家都放完了
                             $this->updatePublicData(['status','process'],3);//切换第一个玩家到准备扔骰子的状态
                         }
                     }
+                }else{
+                    //处于平时建路
                 }
             break;
             default:
