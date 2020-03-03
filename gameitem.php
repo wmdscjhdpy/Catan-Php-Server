@@ -2,8 +2,8 @@
 require_once './gameroom.php';
 //namespace catan;
 //定义0-3为 蓝绿红黄
-const colornum=array('blue','green','red','yellow');
-const colornumzh=array('蓝色','绿色','红色','黄色');
+const colornum=array('blue','green','red','yellow','purple','sky');
+const colornumzh=array('蓝色','绿色','红色','黄色',  '紫色', '天蓝');
 //资源对应数字          0       1       2       3       4       5          6        7              8            9
 const kindnum=array('forest','iron','grass','wheat','stone','solders','harvest','monopoly','roadbuilding','winpoint');
 //以下是游戏数据库
@@ -15,12 +15,13 @@ class gamedata{
     资源分配表，键为hexagon的index，值为一个index array，index代表用户index，其值是可获得数量
     */
     private $resList;
-    private $startrolldata=array();//决定谁先放房子的骰子数据
+    private $startrolldata=array();//决定谁先放房子的骰子数据 其count是游戏玩家数
+    private $startindex=0;//代表当前正在放起始房的序号 是上面array的index
 
     public function __construct($room){
         $this->room=$room;
     }
-    //////////////////////////////////////通信操作函数
+    //通信操作函数
     public function updatePublicData($key,$data)//通过将需要更改的publicdata数据转写为key+data的组合 通过这个函数在更改时自动广播更改数据
     {
         $it=&$this->publicdata;
@@ -150,7 +151,6 @@ class gamedata{
             $P2=$this->getNearPosition($P,$i+60);
             $it=array($P0,$P1,$P2);
             $this->PosSort($it);
-            var_dump($it);
             array_push($ret,$it);
         }
         return $ret;
@@ -180,9 +180,12 @@ class gamedata{
     }
     public function getRoadNearByNode($P)//获取节点附近的三条道路 返回长度3的array
     {
-        $R1=$this->PosSort(array($P[0],$P[1]));
-        $R2=$this->PosSort(array($P[0],$P[2]));
-        $R3=$this->PosSort(array($P[1],$P[2]));
+        $R1=array($P[0],$P[1]);
+        $R2=array($P[0],$P[2]);
+        $R3=array($P[1],$P[2]);
+        $this->PosSort($R1);
+        $this->PosSort($R2);
+        $this->PosSort($R3);
         return array($R1,$R2,$R3);
     }
     public function getNodeConnectRoad($P)//获取道路两边的节点 返回长度2的array 
@@ -218,7 +221,7 @@ class gamedata{
         for($i=0;$i<3;$i++)
         {
             $nearnode[$i]=$this->getNodeConnectRoad($road[$i]);
-            $chkindex=$this->getIndexByPos($nearnode[i][$nodetype]);
+            $chkindex=$this->getIndexByPos($nearnode[$i][$nodetype]);
             if($this->publicdata['node'][$chkindex]['belongto']!='-1')return false;
         }
         return true;
@@ -256,18 +259,18 @@ class gamedata{
                 $res['wheat']-=1;
                 $res['forest']-=1;
                 $res['iron']-=1;
+                $this->flushPrivateData($index);
             }else{
                 return false;
             }
         }
         $nodeindex=$this->getIndexByPos($P);
         $this->AddNodeRes($P,$index);
-        $this->flushPrivateData($index);
         $this->updatePublicData(['node',$nodeindex,'belongto'],$index);
         $this->updatePublicData(['node',$nodeindex,'building'],'home');
-        
+        return true;
     }
-    public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且不检查道路要求
+    public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且按初期要求检查道路
     {
         $roadindex=$this->getIndexByPos($P);
         $res=&$this->pridata[$index]['resources'];
@@ -295,16 +298,25 @@ class gamedata{
             {
                 $res['iron']-=1;
                 $res['forest']-=1;
+                $this->flushPrivateData($index);
             }else{
                 return false;
             }
+        }else{
+            $tmpnode=$this->getNodeConnectRoad($P);//获得道路两边的节点
+            $nodepos[0]=$this->getIndexByPos($tmpnode[0]);
+            $nodepos[1]=$this->getIndexByPos($tmpnode[1]);
+            if($this->publicdata['node'][$nodepos[0]]['belongto']!=$index
+            && $this->publicdata['node'][$nodepos[1]]['belongto']!=$index)
+            {//道路没有邻近村庄，不符合要求
+                return false;
+            }
         }
-        $this->flushPrivateData($index);
         $this->updatePublicData(['road',$roadindex,'belongto'],$index);
         //TODO:最大道路检查函数
     }
-    //////////////////////////////////地图整体相关函数
-    public function getNextPlayer($index){//将当前回合转移给下一个玩家 不输入参数则index为当前玩家
+    //地图整体相关函数
+    public function getNextPlayer($index){//将当前回合正常转移给下一个玩家 不输入参数则index为当前玩家
         if($index==null)
         {
             $index=$this->publicdata['status']['turn'];
@@ -313,6 +325,7 @@ class gamedata{
             $index++;
             if($index==MaxPlayer)$index-=MaxPlayer;
         } while ($this->publicdata['player'][$index]['status']==null);
+        $this->updatePublicData(['status','turn'],$index);
         return $index;
     }
     public function initMap()
@@ -434,7 +447,7 @@ class gamedata{
         {
             $retdata['showmsg'].="第".($i+1)."个放房子的是".colornumzh[$this->startrolldata[$i]]."玩家\n";
         }
-        $this->publicdata['status']['turn']=$this->startrolldata[0];//给第一个玩家放房子
+        $this->publicdata['status']['turn']=$this->startrolldata[$this->startindex++];//给第一个玩家放房子
         $retdata['private']=$this->pridata[$this->startrolldata[0]];//因为大家的私有数据一开始都是一样的，所以直接以第一个玩家的私有数据作为私有数据发给大家
         $this->room->broadcast($retdata);
     }
@@ -449,14 +462,52 @@ class gamedata{
                 $value=$ret['roll'][0]+$ret['roll'][1];
                 $ret['showmsg']=$this->room->nicklist[$index]."摇到了点数".$value."\n";
                 $this->room->broadcast($msg);
-                //收取资源
+                //TODO:收取资源
                 $this->publicdata['status']['process']=4;//进入建设环节
             break;
             case 'buildhome':
-                if($this->publicdata['status']['process']<=2)//还处于初期放房子的时候
+                if($this->publicdata['status']['process']==1)//还处于初期放房子的时候
                 {//这时候不需要耗用资源和道路要求，只需要位置合法即可
-                    //if($this->chkNodeNear($msg['Pos']))
-                    
+                    if($this->buildhome($this->publicdata['node'][$msg['index']]['Pos'],$index,1)==false)
+                    {
+                        $ret['head']='error';
+                        $ret['showmsg']="这个地方和其他房子太过临近了！\n";
+                        $this->room->sendDataByIndex($index,$ret);
+                    }else{
+                        //已成功部署房子
+                        $this->updatePublicData(['status','process'],2);//切换到预部署道路状态
+
+                    }
+                }else{
+                    //处于平时建村
+                    if($this->buildhome($this->publicdata['node'][$msg['index']]['Pos'],$index)==false)
+                    {
+                        $ret['head']='error';
+                        $ret['showmsg']="无法在这里建村，请确认你的资源是否足够，或有没有修好路，或邻近是否有其他村庄\n";
+                        $this->room->sendDataByIndex($index,$ret);
+                    }
+                }
+            break;
+            case 'buildroad':
+                if($this->publicdata['status']['process']==2)//处于预置放路阶段
+                {
+                    if($this->buildroad($this->publicdata['road'][$msg['index']]['Pos'],$index,1)==false)
+                    {
+                        $ret['head']='error';
+                        $ret['showmsg']="无法在这里修路，一开始的路必须放在刚放的村子的附近\n";
+                    }else{//路已经成功放下
+                        $this->startindex++;
+                        if($this->startindex<count($this->startrolldata))
+                        {
+                            $this->updatePublicData(['status','turn'],$this->startrolldata[$this->startindex]);//控制权转交给下一位玩家
+                            $this->updatePublicData(['status','process'],1);
+                        }else if($this->startindex<count($this->startrolldata)*2){//处于第二次放房子了
+                            $this->updatePublicData(['status','turn'],$this->startrolldata[2*count($this->startrolldata-1-$this->startindex)]);//控制权转交给下一位玩家
+                            $this->updatePublicData(['status','process'],1);
+                        }else{//大家都放完了
+                            $this->updatePublicData(['status','process'],3);//切换第一个玩家到准备扔骰子的状态
+                        }
+                    }
                 }
             break;
             default:
