@@ -93,6 +93,7 @@ class gamedata{
                     if($Pos==$this->publicdata['node'][$i]['Pos'])return $i;
                 }
             }else{
+                //输入参数类型不对
                 debug_print_backtrace();
                 var_dump($Pos);//出问题了
             }
@@ -102,7 +103,9 @@ class gamedata{
                 if($Pos==$this->publicdata['hexagon'][$i]['Pos'])return $i;
             }
         }
-
+        //如果执行到了这里说明没找到对应索引，也出问题了，应该检查输入参数是否被possort过
+        debug_print_backtrace();
+        var_dump($Pos);
     }
     public function getNearPosition($P,$deg){//获取临近六边形坐标
         $newP['x']=$P['x'];
@@ -171,12 +174,11 @@ class gamedata{
     //返回节点的类型，根据其道路延伸方式有Y型和人型
     public function getNodeType($P)
     {
-        if((abs(($P[0]['y']+$P[2]['y'])/2)-0.5)%2)//偶数就是人型，奇数就是Y型
-        {
-            return 1;//代表y型
-        }else{
-            return 0;//代表人型
-        }
+        if($P[0]['y']==$P[1]['y'])return 0;//代表人型
+        if($P[1]['y']==$P[2]['y'])return 1;//代表Y型
+        //执行到这里说明传入参数有问题
+        debug_print_backtrace();
+        var_dump($P);
     }
     public function getRoadNearByNode($P)//获取节点附近的三条道路 返回长度3的array
     {
@@ -214,8 +216,6 @@ class gamedata{
     }
     public function chkNodeNear($P)//检查节点附近是否符合“建筑物不能相邻，本身是空地”，如果不符合要求则返回false
     {
-        $thisindex=$this->getIndexByPos($P);
-        if($this->publicdata['node'][$thisindex]['belongto']!='-1')return false;
         $road=$this->getRoadNearByNode($P);
         $nodetype=$this->getNodeType($P);
         for($i=0;$i<3;$i++)
@@ -302,13 +302,25 @@ class gamedata{
             }else{
                 return false;
             }
-        }else{
+        }else{//检查初始道路要求:周围必须有自己的村且村旁边不能再有自己的路
             $tmpnode=$this->getNodeConnectRoad($P);//获得道路两边的节点
             $nodepos[0]=$this->getIndexByPos($tmpnode[0]);
             $nodepos[1]=$this->getIndexByPos($tmpnode[1]);
-            if($this->publicdata['node'][$nodepos[0]]['belongto']!=$index
-            && $this->publicdata['node'][$nodepos[1]]['belongto']!=$index)
-            {//道路没有邻近村庄，不符合要求
+            if($this->publicdata['node'][$nodepos[0]]['belongto']==$index)
+            {
+                $tmproad=$this->getRoadNearByNode($tmpnode[0]);
+                foreach ($tmproad as $key => $value) {
+                    $tmproadindex=$this->getIndexByPos($value);
+                    if($this->publicdata['road'][$tmproadindex]['belongto']==$index)return false;
+                }
+            }else if($this->publicdata['node'][$nodepos[1]]['belongto']==$index)
+            {
+                $tmproad=$this->getRoadNearByNode($tmpnode[1]);
+                foreach ($tmproad as $key => $value) {
+                    $tmproadindex=$this->getIndexByPos($value);
+                    if($this->publicdata['road'][$tmproadindex]['belongto']==$index)return false;
+                }
+            }else{
                 return false;
             }
         }
