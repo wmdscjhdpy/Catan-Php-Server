@@ -103,9 +103,7 @@ class gamedata{
                 if($Pos==$this->publicdata['hexagon'][$i]['Pos'])return $i;
             }
         }
-        //如果执行到了这里说明没找到对应索引，也出问题了，应该检查输入参数是否被possort过
-        debug_print_backtrace();
-        var_dump($Pos);
+        //如果执行到了这里说明没找到对应索引
     }
     public function getNearPosition($P,$deg){//获取临近六边形坐标
         $newP['x']=$P['x'];
@@ -180,15 +178,20 @@ class gamedata{
         debug_print_backtrace();
         var_dump($P);
     }
-    public function getRoadNearByNode($P)//获取节点附近的三条道路 返回长度3的array
+    public function getRoadNearByNode($P)//获取节点附近的三条道路 返回一个array，长度代表有效道路数量
     {
-        $R1=array($P[0],$P[1]);
-        $R2=array($P[0],$P[2]);
-        $R3=array($P[1],$P[2]);
-        $this->PosSort($R1);
-        $this->PosSort($R2);
-        $this->PosSort($R3);
-        return array($R1,$R2,$R3);
+        $R[0]=array($P[0],$P[1]);
+        $R[1]=array($P[0],$P[2]);
+        $R[2]=array($P[1],$P[2]);
+        $output=array();
+        foreach ($R as $road) {
+            $this->PosSort($road);
+            if($this->getIndexByPos($road))
+            {//道路合法
+                array_push($out,$road);
+            }
+        }
+        return $output;
     }
     public function getNodeConnectRoad($P)//获取道路两边的节点 返回长度2的array 
     //返回值的[0]总是返回以“人”字形节点扩散时的外节点 参考和@getRoadNearByNode连用时返回的点的规则
@@ -218,7 +221,7 @@ class gamedata{
     {
         $road=$this->getRoadNearByNode($P);
         $nodetype=$this->getNodeType($P);
-        for($i=0;$i<3;$i++)
+        for($i=0;$i<count($road);$i++)
         {
             $nearnode[$i]=$this->getNodeConnectRoad($road[$i]);
             $chkindex=$this->getIndexByPos($nearnode[$i][$nodetype]);
@@ -243,7 +246,7 @@ class gamedata{
         }
         return false;
     }
-    public function buildhome($P,$index,$param=0)//为index修建一个村庄，param如果为1则不耗费资源，且不进行道路检查
+    public function buildhome($P,$index,$param=0)//为index修建一个村庄，param如果为1则不耗费资源，且不进行道路检查，param为2的话则根据该村庄分配初始资源
     {
         $res=&$this->pridata[$index]['resources'];
         if($this->chkNodeNear($P)==false)return false;
@@ -262,6 +265,14 @@ class gamedata{
                 $this->flushPrivateData($index);
             }else{
                 return false;
+            }
+        }else if($param==2)//是第二个村，给予初始资源
+        {
+            foreach ($P as  $hexPos) {
+                $hexindex=$this->getIndexByPos($hexPos);
+                if($hexindex==null)continue;
+                $hexkind=$this->publicdata['hexagon'][$hexindex]['kind'];
+                if($hexkind!='desert')$this->pridata[$index]['resources'][$hexkind]++;
             }
         }
         $nodeindex=$this->getIndexByPos($P);
@@ -434,7 +445,7 @@ class gamedata{
                 $this->publicdata['player'][$l]['card']=0;
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
-                    $this->pridata[$l][kindnum[$i]]=0;
+                    $this->pridata[$l]['resources'][kindnum[$i]]=0;
                 $this->flushPrivateData($l);
             }else{
                 $this->publicdata['player'][$l]['status']=null;
