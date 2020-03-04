@@ -186,9 +186,9 @@ class gamedata{
         $output=array();
         foreach ($R as $road) {
             $this->PosSort($road);
-            if($this->getIndexByPos($road))
+            if($this->getIndexByPos($road)!==null)
             {//道路合法
-                array_push($out,$road);
+                array_push($output,$road);
             }
         }
         return $output;
@@ -233,7 +233,8 @@ class gamedata{
     {
         foreach ($P as $key => $hexagonPos) {
             $hexagonindex=$this->getIndexByPos($hexagonPos);
-            if($this->resList[$hexagonindex][$index]==null)$this->resList[$hexagonindex][$index]=0;
+            if($hexagonindex===null)continue;//不在地图内的hexagon
+            if($this->resList[$hexagonindex][$index]===null)$this->resList[$hexagonindex][$index]=0;
             $this->resList[$hexagonindex][$index]+=1;
         }
     }
@@ -270,10 +271,11 @@ class gamedata{
         {
             foreach ($P as  $hexPos) {
                 $hexindex=$this->getIndexByPos($hexPos);
-                if($hexindex==null)continue;
+                if($hexindex===null)continue;
                 $hexkind=$this->publicdata['hexagon'][$hexindex]['kind'];
                 if($hexkind!='desert')$this->pridata[$index]['resources'][$hexkind]++;
             }
+            $this->flushPrivateData($index);
         }
         $nodeindex=$this->getIndexByPos($P);
         $this->AddNodeRes($P,$index);
@@ -495,7 +497,9 @@ class gamedata{
             case 'buildhome':
                 if($this->publicdata['status']['process']==1)//还处于初期放房子的时候
                 {//这时候不需要耗用资源和道路要求，只需要位置合法即可
-                    if($this->buildhome($this->publicdata['node'][$msg['index']]['Pos'],$index,1)==false)
+                    $buildparam=1;
+                    if($this->startindex>=count($this->startrolldata))$buildparam=2;//判断是不是第二间屋子，是就给初始资源
+                    if($this->buildhome($this->publicdata['node'][$msg['index']]['Pos'],$index,$buildparam)==false)
                     {
                         $ret['head']='error';
                         $ret['showmsg']="这个地方和其他房子太过临近了！\n";
