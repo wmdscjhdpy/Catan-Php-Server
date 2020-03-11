@@ -251,7 +251,6 @@ class gamedata{
             $roadindex=$this->getIndexByPos($value);
             if($this->publicdata['road'][$roadindex]['belongto']==$index)
             {
-                var_dump($value);
                 return true;
             }
         }
@@ -264,19 +263,11 @@ class gamedata{
         if($param==0)
         {
             if($this->chkNodeHasRoad($P,$index)==false)return false;
-            if($res['grass']>=1 
-            && $res['wheat']>=1 
-            && $res['forest']>=1 
-            && $res['iron']>=1 )
-            {
-                $res['grass']-=1;
-                $res['wheat']-=1;
-                $res['forest']-=1;
-                $res['iron']-=1;
-                $this->flushPrivateData($index);
-            }else{
-                return false;
-            }
+            $res['grass']-=1;
+            $res['wheat']-=1;
+            $res['forest']-=1;
+            $res['iron']-=1;
+            $this->flushPrivateData($index);
         }else if($param==2)//是第二个村，给予初始资源
         {
             foreach ($P as  $hexPos) {
@@ -315,16 +306,9 @@ class gamedata{
                 }
             }
             if($flag==0)return false;
-            //检查资源要求
-            if($res['iron']>=1
-            && $res['forest']>=1)
-            {
-                $res['iron']-=1;
-                $res['forest']-=1;
-                $this->flushPrivateData($index);
-            }else{
-                return false;
-            }
+            $res['iron']-=1;
+            $res['forest']-=1;
+            $this->flushPrivateData($index);
         }else{//检查初始道路要求:周围必须有自己的村且村旁边不能再有自己的路
             $tmpnode=$this->getNodeConnectRoad($P);//获得道路两边的节点
             $nodepos[0]=$this->getIndexByPos($tmpnode[0]);
@@ -580,17 +564,19 @@ class gamedata{
                 }
             break;
             case 'change'://与系统进行交换
-                if($this->pridata[$index]['resources'][$msg['input']])
-                {
-                    $this->pridata[$index]['resources'][$msg['input']]-=4;
-                    $this->pridata[$index]['resources'][$msg['output']]+=1;
-                    $this->flushPrivateData($index);
-                    $ret['head']='msg';
-                }
+                $this->pridata[$index]['resources'][kindnum[$msg['input']]]-=4;
+                $this->pridata[$index]['resources'][kindnum[$msg['output']]]+=1;
+                $this->flushPrivateData($index);
+                $ret['head']='msg';
+                $ret['showmsg']=colornumzh[$index]."玩家使用4个".kindnumzh[$msg['input']]."换取了一个".kindnumzh[$msg['output']]."\n";
+                $this->room->broadcast($ret);
             break;
             case 'endturn':
                 $this->getNextPlayer($index);
                 $this->updatePublicData(['status','process'],3);
+                $ret['head']='msg';
+                $ret['showmsg']=colornumzh[$index]."玩家结束了建设，请".colornumzh[$this->publicdata['status']['turn']]."玩家投骰子\n";
+                $this->room->broadcast($ret);
             break;
             default:
                 var_dump($msg);
