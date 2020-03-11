@@ -11,10 +11,25 @@
 - index:请求的位置数据在list中的index
 如果条件成立，服务器将会广播建村的位置，不成立则返回提示
 
+### head:change
+客户端申请换资源
+特征属性：
+- input:用来交换的资源 字符串
+- output:交换给予的资源 字符串
+成功后会更新牌数据，不成功将会返回提示
+
+### head:endturn
+客户端结束回合
+无特征属性
+将会轮到下一个人投骰子
+
 ## 服务器发送协议
 ### head:startgame
 地图初始化数据
 会包括publicdata和自己的privatedata 合并发送
+### head:msg
+纯消息
+带一个showmsg
 
 ### head:update
 地图更新数据

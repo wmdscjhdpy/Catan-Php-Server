@@ -6,6 +6,7 @@ const colornum=array('blue','green','red','yellow','purple','sky');
 const colornumzh=array('蓝色','绿色','红色','黄色',  '紫色', '天蓝');
 //资源对应数字          0       1       2       3       4       5          6        7              8            9
 const kindnum=array('forest','iron','grass','wheat','stone','solders','harvest','monopoly','roadbuilding','winpoint');
+const kindnumzh=array('木头','铁'   ,'羊毛'   ,'小麦' ,'石头' ,'士兵'    ,'丰收之年','垄断'   ,'道路建设'     ,'胜利点');
 //以下是游戏数据库
 class gamedata{
     private $room;//存放房间信息
@@ -22,7 +23,7 @@ class gamedata{
         $this->room=$room;
     }
     //通信操作函数
-    public function updatePublicData($key,$data)//通过将需要更改的publicdata数据转写为key+data的组合 通过这个函数在更改时自动广播更改数据
+    public function updatePublicData($key,$data,$msg=null)//通过将需要更改的publicdata数据转写为key+data的组合 通过这个函数在更改时自动广播更改数据 msg是可选广播消息
     {
         $it=&$this->publicdata;
         for($i=0;$i<count($key);$i++)
@@ -34,9 +35,10 @@ class gamedata{
         $send['type']='public';
         $send['key']=$key;
         $send['data']=$data;
+        if($msg!==null)$send['showmsg']=$msg;
         $this->room->broadcast($send);
     }
-    public function updatePrivateData($key,$data,$index)
+    public function updatePrivateData($index,$key,$data)
     {
         $it=&$this->pridata[$index];
         for($i=0;$i<count($key);$i++)
@@ -49,6 +51,8 @@ class gamedata{
         $send['key']=$key;
         $send['data']=$data;
         $this->room->sendDataByIndex($index,$send);
+        $resnum=array_sum($this->pridata[$index]['resources']);
+        $this->updatePublicData(['resources'],$resnum);//更新该玩家手牌数量
     }
     public function flushPrivateData($index)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
     {
@@ -58,6 +62,8 @@ class gamedata{
         $send['key']=null;
         $send['data']=$this->pridata[$index];
         $this->room->sendDataByIndex($index,$send);
+        $resnum=array_sum($this->pridata[$index]['resources']);
+        $this->updatePublicData(['player',$index,'resources'],$resnum);//更新该玩家手牌数量
     }
     //////////////////////////////////////地图操作元素函数
     //为了避免node和array索引不对就造成不等的问题而设的sort函数 该函数调用频率极高，有空可以注重此处性能
@@ -448,7 +454,6 @@ class gamedata{
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
                     $this->pridata[$l]['resources'][kindnum[$i]]=0;
-                $this->flushPrivateData($l);
             }else{
                 $this->publicdata['player'][$l]['status']=null;
             }
@@ -479,6 +484,13 @@ class gamedata{
         }
         $this->room->broadcast($retdata);
         $this->updatePublicData(['status','turn'],$this->startrolldata[$this->startindex]);//分配第一个建房子的人
+        for($i=0;$i<MaxPlayer;$i++)
+        {
+            if($this->publicdata['player'][$i]['status']!=null)
+            {
+                $this->flushPrivateData($i);//给存在的玩家发送私有数据
+            }
+        }
     }
 
     //核心处理函数
@@ -488,11 +500,25 @@ class gamedata{
                 //接收到扔骰子指令，
                 $ret['head']='roll';
                 $ret['roll']=array(rand(1,6),rand(1,6));
-                $value=$ret['roll'][0]+$ret['roll'][1];
-                $ret['showmsg']=$this->room->nicklist[$index]."摇到了点数".$value."\n";
-                $this->room->broadcast($msg);
-                //TODO:收取资源
-                $this->publicdata['status']['process']=4;//进入建设环节
+                $rollnum=$ret['roll'][0]+$ret['roll'][1];
+                $ret['showmsg']=$this->room->nicklist[$index]."摇到了点数".$rollnum."\n";
+                $this->room->broadcast($ret);
+                if($rollnum==7)
+                {
+                    //TODO:强盗逻辑
+                }else{
+                    foreach ($this->resList as $hexindex => $value) {
+                        if($rollnum==$this->publicdata['hexagon'][$hexindex]['number']
+                        && $this->publicdata['hexagon'][$hexindex]['robber']!=true)
+                        {
+                            $reskind=$this->publicdata['hexagon'][$hexindex]['kind'];
+                            foreach ($value as $userindex => $resnum) {
+                                $this->updatePrivateData($userindex,['resources',$reskind],$this->pridata[$userindex]['resources'][$reskind]+$resnum);
+                            }
+                        }
+                    }
+                    $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
+                }
             break;
             case 'buildhome':
                 if($this->publicdata['status']['process']==1)//还处于初期放房子的时候
@@ -543,6 +569,19 @@ class gamedata{
                 }else{
                     //处于平时建路
                 }
+            break;
+            case 'change'://与系统进行交换
+                if($this->pridata[$index]['resources'][$msg['input']])
+                {
+                    $this->pridata[$index]['resources'][$msg['input']]-=4;
+                    $this->pridata[$index]['resources'][$msg['output']]+=1;
+                    $this->flushPrivateData($index);
+                    $ret['head']='msg';
+                }
+            break;
+            case 'endturn':
+                $this->getNextPlayer($index);
+                $this->updatePublicData(['status','process'],3);
             break;
             default:
                 var_dump($msg);
