@@ -51,8 +51,8 @@ class gamedata{
         $send['key']=$key;
         $send['data']=$data;
         $this->room->sendDataByIndex($index,$send);
-        $resnum=array_sum($this->pridata[$index]['resources']);
-        $this->updatePublicData(['resources'],$resnum);//更新该玩家手牌数量
+        for($i=0,$resnum=0;$i<5;$i++)$resnum+=$this->pridata[$index]['resources'][kindnum[$i]];
+        $this->updatePublicData(['player',$index,'resources'],$resnum);//更新该玩家手牌数量
     }
     public function flushPrivateData($index)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
     {
@@ -62,7 +62,7 @@ class gamedata{
         $send['key']=null;
         $send['data']=$this->pridata[$index];
         $this->room->sendDataByIndex($index,$send);
-        $resnum=array_sum($this->pridata[$index]['resources']);
+        for($i=0,$resnum=0;$i<5;$i++)$resnum+=$this->pridata[$index]['resources'][kindnum[$i]];
         $this->updatePublicData(['player',$index,'resources'],$resnum);//更新该玩家手牌数量
     }
     //////////////////////////////////////地图操作元素函数
@@ -248,8 +248,12 @@ class gamedata{
     {
         $road=$this->getRoadNearByNode($P);
         foreach ($road as $key => $value) {
-            $roadindex=$this->getIndexByPos($road[$key]);
-            if($this->publicdata['road'][$roadindex]['belogto']==$index)return true;
+            $roadindex=$this->getIndexByPos($value);
+            if($this->publicdata['road'][$roadindex]['belongto']==$index)
+            {
+                var_dump($value);
+                return true;
+            }
         }
         return false;
     }
@@ -303,8 +307,8 @@ class gamedata{
             $roadnear=array_merge($roadnear1,$roadnear2);//合并两个节点的搜索结果
             $flag=0;
             foreach ($roadnear as $key => $road) {
-                $roadindex=$this->getIndexByPos($road);
-                if($this->publicdata['road'][$roadindex]['belongto']==$index)
+                $tmproadindex=$this->getIndexByPos($road);
+                if($this->publicdata['road'][$tmproadindex]['belongto']==$index)
                 {
                     $flag=1;
                     break;
@@ -453,7 +457,7 @@ class gamedata{
                 $this->publicdata['player'][$l]['card']=0;
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
-                    $this->pridata[$l]['resources'][kindnum[$i]]=0;
+                    $this->pridata[$l]['resources'][kindnum[$i]]=5;//TODO:调试方便改的初始资源 记得改回来
             }else{
                 $this->publicdata['player'][$l]['status']=null;
             }
@@ -567,7 +571,12 @@ class gamedata{
                         }
                     }
                 }else{
-                    //处于平时建路
+                    if($this->buildroad($this->publicdata['road'][$msg['index']]['Pos'],$index)==false)
+                    {
+                        $ret['head']='error';
+                        $ret['showmsg']="这里无法修路！请检查是否有道路连接到此处";
+                        $this->room->sendDataByIndex($index,$ret);
+                    }
                 }
             break;
             case 'change'://与系统进行交换
