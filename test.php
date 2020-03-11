@@ -1,8 +1,4 @@
 <?php
-$a=[1,2,3];
-$b=[2,3,4];
-$jk=array($a,$b);
-var_dump($jk);
-$it=&$jk;
-$it=&$it[0];
-var_dump($jk);
+$a[0]='tete';
+$a['tete']=0;
+echo $a[1]==null;

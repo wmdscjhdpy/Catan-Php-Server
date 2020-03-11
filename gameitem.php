@@ -17,6 +17,7 @@ class gamedata{
     */
     private $resList;
     private $startrolldata=array();//决定谁先放房子的骰子数据 其count是游戏玩家数
+    private $rubberchklist=array();//以$startrolldata值作为顺序的待抢卡表，0则为不需要扔或已扔完，index和startrolldata的index保持一致，其余值代表等待扔牌数
     private $startindex=0;//代表当前正在放起始房的序号 是上面array的index
 
     public function __construct($room){
@@ -493,6 +494,18 @@ class gamedata{
                 $this->room->broadcast($ret);
                 if($rollnum==7)
                 {
+                    $this->updatePublicData(['status','extra'],1,"强盗来袭！！！！！！！\n");
+                    foreach ($this->startrolldata as $listindex => $usrindex) {
+                        $ret['head']='msg';
+                        $ret['showmsg']="";
+                        if($this->publicdata['player'][$usrindex]['resources']>=7)
+                        {
+                            $this->rubberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
+                            $ret['showmsg'].=colornumzh[$userindex]."玩家需要丢弃".$this->rubberchklist[$listindex]."张牌\n";
+                        }else{
+                            $ret['showmsg'].=colornumzh[$userindex]."玩家由于不足7张牌，不需要为此付出代价\n";
+                        }
+                    }
                     //TODO:强盗逻辑
                 }else{
                     foreach ($this->resList as $hexindex => $value) {
@@ -507,6 +520,33 @@ class gamedata{
                     }
                     $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
                 }
+            break;
+            case 'discard':
+                //TODO:在前端进行数量检查！
+                $ret['head']='msg';
+                $ret['showmsg']=colornumzh[$index]."玩家丢弃了:";
+                for($i=0;$i<5;$i++)
+                {
+                    if($msg[$i]!=null)
+                    {
+                        $this->pridata[$index]['resources'][kindnum[$i]]-=$msg[$i];
+                        $ret['showmsg'].=$msg[$i]."个".kindnumzh[$i]."，";
+                    }
+                }
+                substr($ret['showmsg'], 0, -1);
+                $ret['showmsg'].="\n";
+                $this->rubberchklist[array_search($index,$this->startrolldata)]=0;
+                //检查是否所有玩家都已弃牌
+                $flag=1;
+                foreach ($this->rubberchklist as $value) {
+                    if($value)$flag=0;
+                }
+                if($flag)
+                {//所有玩家都已完成强盗丢牌工作，进入下一环节
+                    $ret['showmsg'].="所有玩家都已弃牌，由".colornumzh[$this->publicdata['status']['turn']]."玩家移动强盗\n";
+                    $this->updatePublicData(['status','extra',2]);
+                }
+                $this->room->broadcast($ret);
             break;
             case 'buildhome':
                 if($this->publicdata['status']['process']==1)//还处于初期放房子的时候
