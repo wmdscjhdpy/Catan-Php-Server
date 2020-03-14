@@ -522,7 +522,6 @@ class gamedata{
                 }
             break;
             case 'discard':
-                //TODO:在前端进行数量检查！
                 $ret['head']='msg';
                 $ret['showmsg']=colornumzh[$index]."玩家丢弃了:";
                 for($i=0;$i<5;$i++)
@@ -544,7 +543,7 @@ class gamedata{
                 if($flag)
                 {//所有玩家都已完成强盗丢牌工作，进入下一环节
                     $ret['showmsg'].="所有玩家都已弃牌，由".colornumzh[$this->publicdata['status']['turn']]."玩家移动强盗\n";
-                    $this->updatePublicData(['status','extra',2]);
+                    $this->updatePublicData(['status','extra'],2);
                 }
                 $this->room->broadcast($ret);
             break;
