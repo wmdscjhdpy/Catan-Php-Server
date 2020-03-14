@@ -7,6 +7,7 @@ const colornumzh=array('蓝色','绿色','红色','黄色',  '紫色', '天蓝')
 //资源对应数字          0       1       2       3       4       5          6        7              8            9
 const kindnum=array('forest','iron','grass','wheat','stone','solders','harvest','monopoly','roadbuilding','winpoint');
 const kindnumzh=array('木头','铁'   ,'羊毛'   ,'小麦' ,'石头' ,'士兵'    ,'丰收之年','垄断'   ,'道路建设'     ,'胜利点');
+//20个士兵，5个胜利点，3个道路建设，3个垄断，3个丰收之年，
 //以下是游戏数据库
 class gamedata{
     private $room;//存放房间信息
@@ -16,6 +17,7 @@ class gamedata{
     资源分配表，键为hexagon的index，值为一个index array，index代表用户index，其值是可获得数量
     */
     private $resList;
+    private $devcardpool=array(5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9);
     private $robindex=7;//确定盗贼位置的变量
     private $startrolldata=array();//决定谁先放房子的骰子数据 其count是游戏玩家数
     private $robberchklist=array();//以$startrolldata值作为顺序的待抢卡表，0则为不需要扔或已扔完，index和startrolldata的index保持一致，其余值代表等待扔牌数
@@ -615,6 +617,14 @@ class gamedata{
                     }
                 }
             break;
+            case 'buildcity':
+                $res=&$this->pridata[$index]['resources'];
+                $res['wheat']-=2;
+                $res['stone']-=3;
+                $this->flushPrivateData($index);
+                $this->AddNodeRes($this->publicdata['node'][$msg['index']]['Pos'],$index);
+                $this->updatePublicData(['node',$msg['index'],'building'],'city');
+            break;
             case 'buildroad':
                 if($this->publicdata['status']['process']==2)//处于预置放路阶段
                 {
@@ -644,6 +654,18 @@ class gamedata{
                         $this->room->sendDataByIndex($index,$ret);
                     }
                 }
+            break;
+            case 'getcard':
+                $res=&$this->pridata[$index]['resources'];
+                $res['wheat']-=1;
+                $res['stone']-=1;
+                $res['grass']-=1;
+                $cardindex=array_splice($this->devcardpool,rand(0,count($this->devcardpool)-1),1)[0];
+                $res[kindnum[$cardindex]]++;
+                $this->flushPrivateData($index);
+                $send['head']='msg';
+                $send['showmsg']="".colornumzh[$index]."玩家抽取了一张发展卡";
+                $this->room->sendDataByIndex($index,$send);
             break;
             case 'change'://与系统进行交换
                 $this->pridata[$index]['resources'][kindnum[$msg['input']]]-=4;
