@@ -16,8 +16,9 @@ class gamedata{
     资源分配表，键为hexagon的index，值为一个index array，index代表用户index，其值是可获得数量
     */
     private $resList;
+    private $robindex=7;//确定盗贼位置的变量
     private $startrolldata=array();//决定谁先放房子的骰子数据 其count是游戏玩家数
-    private $rubberchklist=array();//以$startrolldata值作为顺序的待抢卡表，0则为不需要扔或已扔完，index和startrolldata的index保持一致，其余值代表等待扔牌数
+    private $robberchklist=array();//以$startrolldata值作为顺序的待抢卡表，0则为不需要扔或已扔完，index和startrolldata的index保持一致，其余值代表等待扔牌数
     private $startindex=0;//代表当前正在放起始房的序号 是上面array的index
 
     public function __construct($room){
@@ -39,7 +40,7 @@ class gamedata{
         if($msg!==null)$send['showmsg']=$msg;
         $this->room->broadcast($send);
     }
-    public function updatePrivateData($index,$key,$data)
+    public function updatePrivateData($index,$key,$data,$msg=null)
     {
         $it=&$this->pridata[$index];
         for($i=0;$i<count($key);$i++)
@@ -51,17 +52,19 @@ class gamedata{
         $send['type']='private';
         $send['key']=$key;
         $send['data']=$data;
+        if($msg)$send['showmsg']=$msg;
         $this->room->sendDataByIndex($index,$send);
         for($i=0,$resnum=0;$i<5;$i++)$resnum+=$this->pridata[$index]['resources'][kindnum[$i]];
         $this->updatePublicData(['player',$index,'resources'],$resnum);//更新该玩家手牌数量
     }
-    public function flushPrivateData($index)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
+    public function flushPrivateData($index,$msg=null)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
     {
         $it=$data;//更改数据
         $send['head']='update';
         $send['type']='private';
         $send['key']=null;
         $send['data']=$this->pridata[$index];
+        if($msg)$send['showmsg']=$msg;
         $this->room->sendDataByIndex($index,$send);
         for($i=0,$resnum=0;$i<5;$i++)$resnum+=$this->pridata[$index]['resources'][kindnum[$i]];
         $this->updatePublicData(['player',$index,'resources'],$resnum);//更新该玩家手牌数量
@@ -410,13 +413,14 @@ class gamedata{
             //分配资源
             if($number==7)
             {
+                $this->robindex=$i;
+                $this->publicdata['hexagon'][$i]['robber']=true;
                 $kind='desert';
                 $this->publicdata['hexagon'][$i]['kind']='desert';
             }else{
                 $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
                 $this->publicdata['hexagon'][$i]['kind']=$kind;
             }
-            //至此地区已经布置完成，可以发送到客户端
         }
         //节点与道路属性赋予
         for($j=0;$j<count($rawnodelist);$j++)
@@ -500,13 +504,12 @@ class gamedata{
                         $ret['showmsg']="";
                         if($this->publicdata['player'][$usrindex]['resources']>=7)
                         {
-                            $this->rubberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
-                            $ret['showmsg'].=colornumzh[$userindex]."玩家需要丢弃".$this->rubberchklist[$listindex]."张牌\n";
+                            $this->robberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
+                            $ret['showmsg'].=colornumzh[$userindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
                         }else{
                             $ret['showmsg'].=colornumzh[$userindex]."玩家由于不足7张牌，不需要为此付出代价\n";
                         }
                     }
-                    //TODO:强盗逻辑
                 }else{
                     foreach ($this->resList as $hexindex => $value) {
                         if($rollnum==$this->publicdata['hexagon'][$hexindex]['number']
@@ -534,10 +537,10 @@ class gamedata{
                 }
                 substr($ret['showmsg'], 0, -1);
                 $ret['showmsg'].="\n";
-                $this->rubberchklist[array_search($index,$this->startrolldata)]=0;
+                $this->robberchklist[array_search($index,$this->startrolldata)]=0;
                 //检查是否所有玩家都已弃牌
                 $flag=1;
-                foreach ($this->rubberchklist as $value) {
+                foreach ($this->robberchklist as $value) {
                     if($value)$flag=0;
                 }
                 if($flag)
@@ -546,6 +549,46 @@ class gamedata{
                     $this->updatePublicData(['status','extra'],2);
                 }
                 $this->room->broadcast($ret);
+            break;
+            case 'moverob':
+                $this->updatePublicData(['hexagon',$this->robindex,'robber'],false);
+                $this->updatePublicData(['hexagon',$msg['index'],'robber'],true);
+                $this->updatePublicData(['status','extra'],3);
+                $ret['head']='msg';
+                $ret['showmsg']="请选择强盗占领地附近任意一个玩家的村落进行掠夺\n";
+                $this->room->sendDataByIndex($index,$ret);
+            break;
+            case 'robacard':
+                $nearbynode=$this->getAllNodeNearby($this->publicdata['hexagon'][$this->robindex]['Pos']);
+                $flag=0;
+                foreach ($nearbynode as $value) {
+                    $nodeindex=$this->getIndexByPos($value);
+                    if($this->publicdata['node'][$nodeindex]['belongto']==$msg['index'])
+                    {
+                        $flag=1;
+                    }
+                    if($flag==1 && $msg['index']!=-1)
+                    {
+                        $getindex=rand(1,$this->publicdata['player'][$msg['index']]['resources']);
+                        foreach ($this->pridata[$msg['index']]['resources'] as $resindex => $resnum) {
+                            if($getindex>$resnum)
+                            {
+                                $getindex-=$resnum;
+                                continue;
+                            }
+                            $this->pridata[$msg['index']]['resources'][$resindex]-=1;
+                            $this->pridata[$index]['resources'][$resindex]+=1;
+                            $this->flushPrivateData($msg['index'],"你被抢走了一个".kindnumzh[$resindex]."\n");
+                            $this->flushPrivateData($index,"你掠夺来了一个".kindnumzh[$resindex]."\n");
+                            break;
+                        }
+                    }
+                    $this->updatePublicData(['status','extra'],4);
+                    if($this->publicdata['status']['process']==3)
+                    {
+                        $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
+                    }
+                }
             break;
             case 'buildhome':
                 if($this->publicdata['status']['process']==1)//还处于初期放房子的时候
