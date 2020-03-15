@@ -244,7 +244,7 @@ class gamedata{
         }
         return true;
     }
-    public function AddNodeRes($P,$index)//为一个更新的建筑节点更新资源索引表 index是更新用户的index
+    public function AddNodeRes($P,$index)//为一个更新的建筑节点更新资源索引表 index是更新用户的index 注意该函数不会自动刷新私有数据
     {
         foreach ($P as $key => $hexagonPos) {
             $hexagonindex=$this->getIndexByPos($hexagonPos);
@@ -252,6 +252,7 @@ class gamedata{
             if($this->resList[$hexagonindex][$index]===null)$this->resList[$hexagonindex][$index]=0;
             $this->resList[$hexagonindex][$index]+=1;
         }
+        $this->pridata[$index]['score']+=1;
     }
     public function chkNodeHasRoad($P,$index)//检查节点是否被$index的用户铺过来了，如果铺过来了则返回true
     {
@@ -276,7 +277,6 @@ class gamedata{
             $res['wheat']-=1;
             $res['forest']-=1;
             $res['iron']-=1;
-            $this->flushPrivateData($index);
         }else if($param==2)//是第二个村，给予初始资源
         {
             foreach ($P as  $hexPos) {
@@ -285,10 +285,10 @@ class gamedata{
                 $hexkind=$this->publicdata['hexagon'][$hexindex]['kind'];
                 if($hexkind!='desert')$this->pridata[$index]['resources'][$hexkind]++;
             }
-            $this->flushPrivateData($index);
         }
         $nodeindex=$this->getIndexByPos($P);
         $this->AddNodeRes($P,$index);
+        $this->flushPrivateData($index);
         $this->updatePublicData(['node',$nodeindex,'belongto'],$index);
         $this->updatePublicData(['node',$nodeindex,'building'],'home');
         return true;
@@ -455,6 +455,7 @@ class gamedata{
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
                     $this->pridata[$l]['resources'][kindnum[$i]]=5;//TODO:调试方便改的初始资源 记得改回来
+                $this->pridata[$l]['score']=0;
             }else{
                 $this->publicdata['player'][$l]['status']=null;
             }
@@ -638,8 +639,8 @@ class gamedata{
                 $res=&$this->pridata[$index]['resources'];
                 $res['wheat']-=2;
                 $res['stone']-=3;
-                $this->flushPrivateData($index);
                 $this->AddNodeRes($this->publicdata['node'][$msg['index']]['Pos'],$index);
+                $this->flushPrivateData($index);
                 $this->updatePublicData(['node',$msg['index'],'building'],'city');
             break;
             case 'buildroad':
@@ -680,9 +681,12 @@ class gamedata{
                 $res['grass']-=1;
                 $cardindex=array_splice($this->devcardpool,rand(0,count($this->devcardpool)-1),1)[0];
                 $res[kindnum[$cardindex]]++;
+                if($cardindex==9)//如果抽到的是胜利点
+                {
+                    $this->pridata[$index]['score']++;
+                }
                 $this->flushPrivateData($index,"你获得了一张".kindnumzh[$cardindex]."\n");
                 $this->updatePublicData(['player',$index,'card'],1,"".colornumzh[$index]."玩家抽取了一张发展卡\n",'+');
-                //TODO:加分卡直接计算
             break;
             case 'usecard':
                 $this->pridata[$index]['resources'][kindnum[$msg['index']]]-=1;//扣除卡
@@ -692,8 +696,8 @@ class gamedata{
                     case 5:$tips="请选择强盗挪动的位置\n";break;
                     case 6:$tips="请选择需要的资源，决定好后按“获得”键完成\n";break;
                     case 7:$tips="请选择一种你想垄断的资源\n";break;
+                    case 8:$tips="请选择你要修的路\n";break;
                 }
-                $this->flushPrivateData($index,$tips);
                 if($msg['index']==5)//是出兵
                 {
                     $this->updatePublicData(['player',$index,'soldier'],'1',null,'+');
@@ -701,6 +705,7 @@ class gamedata{
                 }else{
                     $this->updatePublicData(['status','extra'],$msg['index'],"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
                 }
+                $this->flushPrivateData($index,$tips);
             break;
             case 'cardevent':
                 switch($this->publicdata['status']['extra'])
@@ -728,7 +733,7 @@ class gamedata{
                             $this->updatePublicData(null,null,"".colornumzh[$this->startrolldata[$i]]."玩家由于垄断损失了".$resnum."个".kindnumzh[$msg['index']]."\n");
                         }
                         $this->pridata[$index]['resources'][kindnum[$msg['index']]]+=$ressum;
-                        $this->flushPrivateData($index);
+                        $this->flushPrivateData($index,"你这次垄断获得了 $ressum 张牌");
                         $this->updatePublicData(['status','extra'],0);//恢复正常状态
                     break;
                     case 8://道路建设

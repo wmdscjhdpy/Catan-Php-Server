@@ -122,3 +122,4 @@
     - monopoly:垄断
     - roadbuilding:道路建设
     - winpoint:胜利点
+- score:代表该玩家目前的胜利点得分
