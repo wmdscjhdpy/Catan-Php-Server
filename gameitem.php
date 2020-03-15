@@ -21,7 +21,7 @@ class gamedata{
     private $robindex=7;//确定盗贼位置的变量
     private $startrolldata=array();//决定谁先放房子的骰子数据 其count是游戏玩家数
     private $robberchklist=array();//以$startrolldata值作为顺序的待抢卡表，0则为不需要扔或已扔完，index和startrolldata的index保持一致，其余值代表等待扔牌数
-    private $startindex=0;//代表当前正在放起始房的序号 是上面array的index
+    private $tmpvalue=0;//在开始时代表当前正在放起始房的序号 是上面array的index 游戏进行时作为道路建设卡的临时变量，当修了第一条路后其值会变为1
 
     public function __construct($room){
         $this->room=$room;
@@ -61,23 +61,6 @@ class gamedata{
         $send['data']=$it;
         if($msg!==null)$send['showmsg']=$msg;
         $this->room->broadcast($send);
-    }
-    public function updatePrivateData($index,$key,$data,$msg=null)
-    {
-        $it=&$this->pridata[$index];
-        for($i=0;$i<count($key);$i++)
-        {
-            $it=&$it[$key[$i]];//循环调用引用到最终层
-        }
-        $it=$data;//更改数据
-        $send['head']='update';
-        $send['type']='private';
-        $send['key']=$key;
-        $send['data']=$data;
-        if($msg)$send['showmsg']=$msg;
-        $this->room->sendDataByIndex($index,$send);
-        for($i=0,$resnum=0;$i<5;$i++)$resnum+=$this->pridata[$index]['resources'][kindnum[$i]];
-        $this->updatePublicData(['player',$index,'resources'],$resnum);//更新该玩家手牌数量
     }
     public function flushPrivateData($index,$msg=null)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
     {
@@ -310,12 +293,12 @@ class gamedata{
         $this->updatePublicData(['node',$nodeindex,'building'],'home');
         return true;
     }
-    public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且按初期要求检查道路
+    public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且按初期要求检查道路，2为道路建设的免费路
     {
         $roadindex=$this->getIndexByPos($P);
         $res=&$this->pridata[$index]['resources'];
         if($this->publicdata['road'][$roadindex]['belongto']!='-1')return false;
-        if($param==0)
+        if($param==0 || $param==2)
         {
             //检查道路要求
             $tmpnode=$this->getNodeConnectRoad($P);//获得道路两边的节点
@@ -332,8 +315,11 @@ class gamedata{
                 }
             }
             if($flag==0)return false;
-            $res['iron']-=1;
-            $res['forest']-=1;
+            if($param==0)
+            {
+                $res['iron']-=1;
+                $res['forest']-=1;
+            }
             $this->flushPrivateData($index);
         }else{//检查初始道路要求:周围必须有自己的村且村旁边不能再有自己的路
             $tmpnode=$this->getNodeConnectRoad($P);//获得道路两边的节点
@@ -498,7 +484,7 @@ class gamedata{
             $retdata['showmsg'].="第".($i+1)."个放房子的是".colornumzh[$this->startrolldata[$i]]."玩家\n";
         }
         $this->room->broadcast($retdata);
-        $this->updatePublicData(['status','turn'],$this->startrolldata[$this->startindex]);//分配第一个建房子的人
+        $this->updatePublicData(['status','turn'],$this->startrolldata[$this->tmpvalue]);//分配第一个建房子的人
         for($i=0;$i<MaxPlayer;$i++)
         {
             if($this->publicdata['player'][$i]['status']!=null)
@@ -534,15 +520,21 @@ class gamedata{
                         }
                     }
                 }else{
+                    $flushflag=array();//记录改变的数据
                     foreach ($this->resList as $hexindex => $value) {
                         if($rollnum==$this->publicdata['hexagon'][$hexindex]['number']
                         && $this->publicdata['hexagon'][$hexindex]['robber']!=true)
                         {
                             $reskind=$this->publicdata['hexagon'][$hexindex]['kind'];
                             foreach ($value as $userindex => $resnum) {
-                                $this->updatePrivateData($userindex,['resources',$reskind],$this->pridata[$userindex]['resources'][$reskind]+$resnum);
+                                $this->pridata[$userindex]['resources'][$reskind]+=$resnum;
+                                $flushflag[$userindex]=1;
                             }
                         }
+                    }
+                    foreach($flushflag as $userindex => $value)
+                    {
+                        $this->flushPrivateData($userindex);
                     }
                     $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
                 }
@@ -622,7 +614,7 @@ class gamedata{
                 if($this->publicdata['status']['process']==1)//还处于初期放房子的时候
                 {//这时候不需要耗用资源和道路要求，只需要位置合法即可
                     $buildparam=1;
-                    if($this->startindex>=count($this->startrolldata))$buildparam=2;//判断是不是第二间屋子，是就给初始资源
+                    if($this->tmpvalue>=count($this->startrolldata))$buildparam=2;//判断是不是第二间屋子，是就给初始资源
                     if($this->buildhome($this->publicdata['node'][$msg['index']]['Pos'],$index,$buildparam)==false)
                     {
                         $ret['head']='error';
@@ -659,15 +651,16 @@ class gamedata{
                         $ret['showmsg']="无法在这里修路，一开始的路必须放在刚放的村子的附近\n";
                         $this->room->sendDataByIndex($index,$ret);
                     }else{//路已经成功放下
-                        $this->startindex++;
-                        if($this->startindex<count($this->startrolldata))
+                        $this->tmpvalue++;
+                        if($this->tmpvalue<count($this->startrolldata))
                         {
-                            $this->updatePublicData(['status','turn'],$this->startrolldata[$this->startindex]);//控制权转交给下一位玩家
+                            $this->updatePublicData(['status','turn'],$this->startrolldata[$this->tmpvalue]);//控制权转交给下一位玩家
                             $this->updatePublicData(['status','process'],1);
-                        }else if($this->startindex<count($this->startrolldata)*2){//处于第二次放房子了
-                            $this->updatePublicData(['status','turn'],$this->startrolldata[2*count($this->startrolldata)-1-$this->startindex]);//控制权转交给下一位玩家
+                        }else if($this->tmpvalue<count($this->startrolldata)*2){//处于第二次放房子了
+                            $this->updatePublicData(['status','turn'],$this->startrolldata[2*count($this->startrolldata)-1-$this->tmpvalue]);//控制权转交给下一位玩家
                             $this->updatePublicData(['status','process'],1);
                         }else{//大家都放完了
+                            $this->tmpvalue=0;//复位tmp变量以便后期使用
                             $this->updatePublicData(['status','process'],3);//切换第一个玩家到准备扔骰子的状态
                         }
                     }
@@ -694,7 +687,13 @@ class gamedata{
             case 'usecard':
                 $this->pridata[$index]['resources'][kindnum[$msg['index']]]-=1;//扣除卡
                 $this->updatePublicData(['player',$index,'card'],1,null,'-');
-                $this->flushPrivateData($index);
+                switch($msg['index'])
+                {
+                    case 5:$tips="请选择强盗挪动的位置\n";break;
+                    case 6:$tips="请选择需要的资源，决定好后按“获得”键完成\n";break;
+                    case 7:$tips="请选择一种你想垄断的资源\n";break;
+                }
+                $this->flushPrivateData($index,$tips);
                 if($msg['index']==5)//是出兵
                 {
                     $this->updatePublicData(['player',$index,'soldier'],'1',null,'+');
@@ -732,6 +731,26 @@ class gamedata{
                         $this->flushPrivateData($index);
                         $this->updatePublicData(['status','extra'],0);//恢复正常状态
                     break;
+                    case 8://道路建设
+                        if($this->buildroad($this->publicdata['road'][$msg['index']]['Pos'],$index,2))
+                        {
+                            
+                            if($this->tmpvalue==0)
+                            {
+                                $this->tmpvalue=1;//标记已经修了一条
+                                $this->updatePublicData(null,null,"".colornumzh[$index]."玩家修好了TA的第一条免费路\n");
+                                break;
+                            }
+                            if($this->tmpvalue==1)//两条都修完了
+                            {                                
+                                $this->updatePublicData(['status','extra'],0,"".colornumzh[$index]."玩家修好了TA的第二条免费路\n");
+                                $this->tmpvalue=0;
+                            }
+                        }else{
+                            $ret['head']='error';
+                            $ret['showmsg']="这里无法修路！请检查是否有道路连接到此处";
+                            $this->room->sendDataByIndex($index,$ret);
+                        }
                 }
             break;
             case 'change'://与系统进行交换
