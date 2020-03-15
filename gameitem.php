@@ -22,6 +22,8 @@ class gamedata{
     private $startrolldata=array();//决定谁先放房子的骰子数据 其count是游戏玩家数
     private $robberchklist=array();//以$startrolldata值作为顺序的待抢卡表，0则为不需要扔或已扔完，index和startrolldata的index保持一致，其余值代表等待扔牌数
     private $tmpvalue=0;//在开始时代表当前正在放起始房的序号 是上面array的index 游戏进行时作为道路建设卡的临时变量，当修了第一条路后其值会变为1
+    private $maxsoldiersnum=3-1;
+    private $maxroadsnum=5-1;
 
     public function __construct($room){
         $this->room=$room;
@@ -463,6 +465,8 @@ class gamedata{
         $this->publicdata['status']['process']=1;
         $this->publicdata['status']['turn']=0;
         $this->publicdata['status']['extra']=0;
+        $this->publicdata['status']['maxsoldiers']=-1;
+        $this->publicdata['status']['maxroads']=-1;
     }
     public function startgame($nowplayer)//初始化游戏地图
     {
@@ -508,17 +512,26 @@ class gamedata{
                 $this->room->broadcast($ret);
                 if($rollnum==7)
                 {
-                    $this->updatePublicData(['status','extra'],1,"强盗来袭！！！！！！！\n");
+                    $showmsg="";
                     foreach ($this->startrolldata as $listindex => $usrindex) {
-                        $ret['head']='msg';
-                        $ret['showmsg']="";
                         if($this->publicdata['player'][$usrindex]['resources']>=7)
                         {
                             $this->robberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
-                            $ret['showmsg'].=colornumzh[$userindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
+                            $showmsg.=colornumzh[$userindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
                         }else{
-                            $ret['showmsg'].=colornumzh[$userindex]."玩家由于不足7张牌，不需要为此付出代价\n";
+                            $showmsg.=colornumzh[$userindex]."玩家由于不足7张牌，不需要为此付出代价\n";
                         }
+                    }
+                    $this->updatePublicData(['status','extra'],1,"强盗来袭！！！！！！！\n".$showmsg);
+                    //检查是否所有玩家都已弃牌
+                    $flag=1;
+                    foreach ($this->robberchklist as $value) {
+                        if($value)$flag=0;
+                    }
+                    if($flag)
+                    {//所有玩家都已完成强盗丢牌工作，进入下一环节
+                        $showmsg="没有人需要弃牌，由".colornumzh[$this->publicdata['status']['turn']]."玩家移动强盗\n";
+                        $this->updatePublicData(['status','extra'],2,$showmsg);
                     }
                 }else{
                     $flushflag=array();//记录改变的数据
@@ -703,6 +716,11 @@ class gamedata{
                 {
                     $this->updatePublicData(['player',$index,'soldier'],'1',null,'+');
                     $this->updatePublicData(['status','extra'],2,"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
+                    if($this->publicdata['player'][$index]['soldier']>$this->maxsoldiersnum)
+                    {
+                        $this->updatePublicData(['status','maxsoldiers'],$index,"".colornumzh[$index]."玩家夺得了最大士兵成就\n");
+                        $this->maxsoldiersnum=$this->publicdata['player'][$index]['soldier'];
+                    }
                 }else{
                     $this->updatePublicData(['status','extra'],$msg['index'],"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
                 }
@@ -774,6 +792,14 @@ class gamedata{
                 $ret['head']='msg';
                 $ret['showmsg']=colornumzh[$index]."玩家结束了建设，请".colornumzh[$this->publicdata['status']['turn']]."玩家投骰子\n";
                 $this->room->broadcast($ret);
+            break;
+            case 'chkwin':
+                if($this->pridata[$index]['score']>=10)
+                {
+                    $this->updatePublicData(['status','process'],0,"游戏结束！胜利者是".colornumzh[$index]."玩家！！！");
+                }else{
+                    $this->updatePublicData(null,null,"大家快来看看啊！".colornumzh[$index]."玩家不要脸啊！才".$this->pridata[$index]['score']."分就想宣告胜利了！！！\n");
+                }
             break;
             default:
                 var_dump($msg);
