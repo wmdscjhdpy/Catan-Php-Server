@@ -564,6 +564,7 @@ class gamedata{
                     $ret['showmsg'].="所有玩家都已弃牌，由".colornumzh[$this->publicdata['status']['turn']]."玩家移动强盗\n";
                     $this->updatePublicData(['status','extra'],2);
                 }
+                $this->flushPrivateData($index);
                 $this->room->broadcast($ret);
             break;
             case 'moverob':
@@ -718,6 +719,7 @@ class gamedata{
                             if($msg[$i]!=0)$showmsg.="".$msg[$i]."个".kindnumzh[$i].",";
                         }
                         substr($showmsg, 0, -1);
+                        $showmsg.="\n";
                         $this->flushPrivateData($index);
                         $this->updatePublicData(['status','extra'],0,$showmsg);//事件完成
                     break;
