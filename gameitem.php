@@ -31,6 +31,15 @@ class gamedata{
     public function __construct($room){
         $this->room=$room;
     }
+    //调试用函数
+    public function printPos($Pos)
+    {
+        echo "Pos:";
+        foreach ($Pos as $num => $point) {
+            echo " (".$point['x'].",".$point['y'].")";
+        }
+        echo "\n";
+    }
     //通信操作函数
     public function updatePublicData($key,$data,$msg=null,$extra=null)//通过将需要更改的publicdata数据转写为key+data的组合 通过这个函数在更改时自动广播更改数据 msg是可选广播消息 如果key==null则只广播消息 $extra是特殊值，如果为'+'则data使用+=,其他符号类似
     {
@@ -374,28 +383,38 @@ class gamedata{
             if($ref[$i]['belongto']!=$userindex)continue;//该道路不属于当前用户
             if($this->roadchklist[$i]==true)continue;//该道路已经过检查了
             //取得了一条道路，开始从道路的两边开始延展道路
+            var_dump($ref[$i]['Pos']);
             $mainnode=$this->getNodeConnectRoad($ref[$i]['Pos']);
             $mainlong=0;//用于局部的最大道路检测
             foreach ($mainnode as $mainnodePos) {
                 $activetag=1;//代表分支活跃级别，越小越往前
                 $deepbox=array();//关键迭代器 除了根节点只有1个元素，其余情况都是两个元素
-                $rootindex=$this->getIndexByPos($mainnodePos);//root是需要从两边发散并且都取有效值，不需要比较两边长度而进行取舍
-                $deepbox[1][0]=$rootindex;
+                $deepbox[1][0]=$mainnodePos;//根节点不需要比较两边长度而进行取舍
+                $deepbox[1][1]=0;//方便进入循环迭代用的
                 $this->roadchklist[$i]=0;
                 $this->activeroad[$i]=$activetag;//代表分支活跃级别，越小越往前;
                 while($activetag>0)
                 {
                     foreach ($deepbox[$activetag] as $boxindex => $data) {
-                        if(is_int($data) || $boxindex=='root')//数据已经被处理过了或者是子根节点信息
+                        if(is_int($data) || $boxindex==='root')//数据已经被处理过了或者是子根节点信息
                         {
                             continue;
                         }
-                        if($deepbox[$activetag]['root'])//如果是一个子树的话
+                        if($activetag!=1)//如果是一个子树的话
                         {
                             $tmpnode=$this->getNodeConnectRoad($data);
-                            $forwardnode=array_diff($tmpnode,[$deepbox[$activetag]['root']]);
+                            foreach ($tmpnode as $tmp) {
+                                if($tmp!=$deepbox[$activetag]['root'])
+                                {
+                                    $forwardnode=$tmp;//取出和子树根节点不同的节点即为发展节点
+                                }
+                            }
                             $this->activeroad[$this->getIndexByPos($data)]=$activetag;//给子道路树初始道路添加标记
+                        }else{//根节点传送的直接就是节点，不需要通过道路进行转换
+                            $forwardnode=$data;
                         }
+                        echo "start search on ";
+                        $this->printPos($forwardnode);
                         $ret=$this->roadTraceNextBranch($forwardnode,$userindex,$activetag);
                         if($ret!=null)//存在新分支
                         {
@@ -413,11 +432,20 @@ class gamedata{
                                     $this->roadchklist[$j]=true;//标志已处理过
                                 }
                             }
+                            echo "branch $activetag has long $sum \n";
                             $deepbox[$activetag][$boxindex]=$sum;
                         }
                     }
-                    while(is_int($deepbox[$activetag][0]) && is_int($deepbox[$activetag][1]))
+                    while((is_int($deepbox[$activetag][0]) && is_int($deepbox[$activetag][1])))
                     {//该层次的道路都已清算完毕 向上一层结算 优先填充[0]在填充[1]
+                        if(is_int($deepbox[1][0]))//已经回溯到根了
+                        {
+                            $mainlong+=$deepbox[1][0];
+                            echo "get long ".$deepbox[1][0]."\n";
+                            $activetag--;
+                            break;
+                        }
+                        $sum=0;
                         for($j=0;$j<count($this->publicdata['road']);$j++)
                         {
                             if($this->activeroad[$j]==$activetag-1)
@@ -427,29 +455,25 @@ class gamedata{
                                 $this->roadchklist[$j]=true;//标志已处理过
                             }
                         }
+                        echo "father branch $activetag has long $sum \n";
                         if($deepbox[$activetag][0]>$deepbox[$activetag][1])
                         {
-                            if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][0];
-                            else $deepbox[$activetag-1][0]=$deepbox[$activetag][0];
+                            if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][0]+$sum;
+                            else $deepbox[$activetag-1][0]=$deepbox[$activetag][0]+$sum;
                         }else{
-                            if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][1];
-                            else $deepbox[$activetag-1][0]=$deepbox[$activetag][1];
+                            if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][1]+$sum;
+                            else $deepbox[$activetag-1][0]=$deepbox[$activetag][1]+$sum;
                         }
+                        //var_dump($deepbox);
                         $activetag--;
-                    }
-                    if(is_int($deepbox[1][0]))//已经回溯到根了
-                    {
-                        $mainlong+=$deepbox[1][0];
-                        break;
                     }
                 }
             }
             //至此，两个方向的最大道路都已回溯完毕
             $mainlong--;//因为根道路被重复计算了所以需要-1
             if($maxroad<$mainlong)$maxroad=$mainlong;
-            $mainlong=0;//准备下次运算
         }
-        echo "Max road: $maxroad";
+        echo "Max road: $maxroad \n";
         return $maxroad;
     }
     public function roadTraceNextBranch($P,$userindex,$branchtag)//根据node确定的方向一直搜寻道路直到下个分支 遇到分支时会将两个分支道路作为array返回
@@ -462,29 +486,49 @@ class gamedata{
             $branch=array();
             foreach ($nearroad as $Pos) {
                 $roadindex=$this->getIndexByPos($Pos);
-                if($this->activeroad[$roadindex]==true || $this->roadchklist[$roadindex]==true)
+                if($this->activeroad[$roadindex]!=0 
+                || $this->roadchklist[$roadindex]==true)
                 {
                     $usenum+=1;
                 }else if($ref[$roadindex]['belongto']==$userindex){
                     array_push($branch,$Pos);//将还没登记的道路推送到分支上
+                    echo "new branch road ";
+                    $this->printPos($Pos);
                 }
             }
             if(count($branch)==2)//存在新分支
             {
                 $tmp1=$this->getNodeConnectRoad($branch[0]);
                 $tmp2=$this->getNodeConnectRoad($branch[1]);
-                $branch['root']=array_intersect($tmp1,$tmp2);
+                foreach ($tmp1 as $value1) {//寻找tmp中相同的node即为子树的根
+                    foreach ($tmp2 as $value2) {
+                        if($value1===$value2)
+                        {
+                            $branch['root']=$value1;
+                        }
+                    }
+                }
                 return $branch;
             }else if(count($branch)==1)//存在继续延展的方向
             {
+                echo "fetch road ";
+                $this->printPos($branch[0]);
                 $roadindex=$this->getIndexByPos($branch[0]);//获得新路的index
                 $this->activeroad[$roadindex]=$branchtag;//将该条道路标记为活跃
                 $nodePos=$this->getNodeConnectRoad($branch[0]);
+                $this->printPos($P);
                 foreach ($nodePos as $Pos) {
-                    if($P==$Pos)continue;
+                    if($P===$Pos)
+                    {
+                        continue;
+                    }
                     $P=$Pos;//刷新要继续探路的nodeindex
+                    echo "refresh Pos\n";
+                    break;
                 }
             }else{//没有新路，该分支已探索完成
+                echo "end node ";
+                $this->printPos($P);
                 return null;
             }
         }
