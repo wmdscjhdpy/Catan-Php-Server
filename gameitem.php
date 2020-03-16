@@ -25,7 +25,6 @@ class gamedata{
     private $maxsoldiersnum=3-1;
     private $maxroadsnum=5-1;
     //和最大道路检查相关的变量
-    private $roadchklist=array();
     private $activeroad=array();//活跃中的检查道路，其值为活跃代号，数字越大代表越处于分支的末尾
 
     public function __construct($room){
@@ -246,7 +245,7 @@ class gamedata{
         }
         return array($N1,$N2);
     }
-    public function chkNodeNear($P)//检查节点附近是否符合“建筑物不能相邻，本身是空地”，如果不符合要求则返回false
+    public function chkNodeNear($P)//检查节点附近是否符合“建筑物不能相邻”，如果不符合要求则返回false
     {
         $road=$this->getRoadNearByNode($P);
         $nodetype=$this->getNodeType($P);
@@ -268,17 +267,18 @@ class gamedata{
         }
         $this->pridata[$index]['score']+=1;
     }
-    public function chkNodeHasRoad($P,$index)//检查节点是否被$index的用户铺过来了，如果铺过来了则返回true
+    public function chkNodeHasRoad($P,$index)//检查节点是否被$index的用户铺过来了，如果铺过来了则返回节点接壤的道路数量
     {
         $road=$this->getRoadNearByNode($P);
-        foreach ($road as $key => $value) {
+        $sum=0;
+        foreach ($road as $value) {
             $roadindex=$this->getIndexByPos($value);
             if($this->publicdata['road'][$roadindex]['belongto']==$index)
             {
-                return true;
+                $sum++;
             }
         }
-        return false;
+        return $sum;
     }
     public function buildhome($P,$index,$param=0)//为index修建一个村庄，param如果为1则不耗费资源，且不进行道路检查，param为2的话则根据该村庄分配初始资源
     {
@@ -376,101 +376,103 @@ class gamedata{
     public function maxRoadChk($userindex)
     {
         $ref=&$this->publicdata['road'];
-        $this->roadchklist=array();//记录已经检查过的道路，检查过的会标记
         $maxroad=0;//用于本次分析的最大道路检测
         for($i=0;$i<count($this->publicdata['road']);$i++)
-        {//开始试图延展道路
+        {//开始试图延展道路 先找出一个端点路线
             if($ref[$i]['belongto']!=$userindex)continue;//该道路不属于当前用户
-            if($this->roadchklist[$i]==true)continue;//该道路已经过检查了
-            //取得了一条道路，开始从道路的两边开始延展道路
-            var_dump($ref[$i]['Pos']);
-            $mainnode=$this->getNodeConnectRoad($ref[$i]['Pos']);
-            $mainlong=0;//用于局部的最大道路检测
-            foreach ($mainnode as $mainnodePos) {
-                $activetag=1;//代表分支活跃级别，越小越往前
-                $deepbox=array();//关键迭代器 除了根节点只有1个元素，其余情况都是两个元素
-                $deepbox[1][0]=$mainnodePos;//根节点不需要比较两边长度而进行取舍
-                $deepbox[1][1]=0;//方便进入循环迭代用的
-                $this->roadchklist[$i]=0;
-                $this->activeroad[$i]=$activetag;//代表分支活跃级别，越小越往前;
-                while($activetag>0)
+            $tmpnode=$this->getNodeConnectRoad($ref[$i]['Pos']);
+            $flag=0;
+            $rootnode;
+            foreach ($tmpnode as $nearnodepos) {
+                if($this->chkNodeHasRoad($nearnodepos,$userindex)%2==1
+                && $flag==0)//通过判断周边路径数量是否为奇数
                 {
-                    foreach ($deepbox[$activetag] as $boxindex => $data) {
-                        if(is_int($data) || $boxindex==='root')//数据已经被处理过了或者是子根节点信息
-                        {
-                            continue;
-                        }
-                        if($activetag!=1)//如果是一个子树的话
-                        {
-                            $tmpnode=$this->getNodeConnectRoad($data);
-                            foreach ($tmpnode as $tmp) {
-                                if($tmp!=$deepbox[$activetag]['root'])
-                                {
-                                    $forwardnode=$tmp;//取出和子树根节点不同的节点即为发展节点
-                                }
-                            }
-                            $this->activeroad[$this->getIndexByPos($data)]=$activetag;//给子道路树初始道路添加标记
-                        }else{//根节点传送的直接就是节点，不需要通过道路进行转换
-                            $forwardnode=$data;
-                        }
-                        echo "start search on ";
-                        $this->printPos($forwardnode);
-                        $ret=$this->roadTraceNextBranch($forwardnode,$userindex,$activetag);
-                        if($ret!=null)//存在新分支
-                        {
-                            $activetag++;
-                            $deepbox[$activetag]=$ret;//向下一级迭代
-                        }else{//该路径到此结束
-                            //统计本次子路径长度
-                            $sum=0;
-                            for($j=0;$j<count($this->publicdata['road']);$j++)
-                            {
-                                if($this->activeroad[$j]==$activetag)
-                                {
-                                    $sum++;
-                                    $this->activeroad[$j]=0;//清空active标志
-                                    $this->roadchklist[$j]=true;//标志已处理过
-                                }
-                            }
-                            echo "branch $activetag has long $sum \n";
-                            $deepbox[$activetag][$boxindex]=$sum;
-                        }
+                    $flag=1;//是奇数
+                }else{
+                    $rootnode=$nearnodepos;//如果是端点的话这个值就是朝有路的方向的节点，后面会用到。
+                }
+            }
+            if($flag===0)continue;//不是端点，不进行探索
+            $mainlong=0;//用于局部的最大道路检测
+            $activetag=1;//代表分支活跃级别，越小越往前
+            $deepbox=array();//关键迭代器 除了根节点只有1个元素，其余情况都是两个元素
+            $deepbox[1][0]=$rootnode;//根节点不需要比较两边长度而进行取舍
+            $deepbox[1][1]=0;//方便进入循环迭代用的
+            $this->activeroad[$i]=$activetag;//代表分支活跃级别，越小越往前;
+            while($activetag>0)
+            {
+                foreach ($deepbox[$activetag] as $boxindex => $data) {
+                    if(is_int($data) || $boxindex==='root')//数据已经被处理过了或者是子根节点信息
+                    {
+                        continue;
                     }
-                    while((is_int($deepbox[$activetag][0]) && is_int($deepbox[$activetag][1])))
-                    {//该层次的道路都已清算完毕 向上一层结算 优先填充[0]在填充[1]
-                        if(is_int($deepbox[1][0]))//已经回溯到根了
-                        {
-                            $mainlong+=$deepbox[1][0];
-                            echo "get long ".$deepbox[1][0]."\n";
-                            $activetag--;
-                            break;
+                    if($activetag!=1)//如果是一个子树的话 处理第一条道路的标志和导出发展节点
+                    {
+                        $tmpnode=$this->getNodeConnectRoad($data);
+                        foreach ($tmpnode as $tmp) {
+                            if($tmp!=$deepbox[$activetag]['root'])
+                            {
+                                $forwardnode=$tmp;//取出和子树根节点不同的节点即为发展节点
+                            }
                         }
+                        $this->activeroad[$this->getIndexByPos($data)]=$activetag;//给子道路树初始道路添加标记
+                    }else{//根节点传送的直接就是节点，不需要通过道路进行转换
+                        $forwardnode=$data;
+                    }
+                    echo "$activetag.start search on ";
+                    $this->printPos($data);
+                    $ret=$this->roadTraceNextBranch($forwardnode,$userindex,$activetag);
+                    if($ret!=null)//存在新分支
+                    {
+                        $activetag++;
+                        $deepbox[$activetag]=$ret;//向下一级迭代
+                        break; //马上退出，继续处理下一个迭代的事件
+                    }else{//该路径到此结束
+                        //统计本次子路径长度
                         $sum=0;
                         for($j=0;$j<count($this->publicdata['road']);$j++)
                         {
-                            if($this->activeroad[$j]==$activetag-1)
+                            if($this->activeroad[$j]==$activetag)
                             {
                                 $sum++;
                                 $this->activeroad[$j]=0;//清空active标志
-                                $this->roadchklist[$j]=true;//标志已处理过
                             }
                         }
-                        echo "father branch $activetag has long $sum \n";
-                        if($deepbox[$activetag][0]>$deepbox[$activetag][1])
-                        {
-                            if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][0]+$sum;
-                            else $deepbox[$activetag-1][0]=$deepbox[$activetag][0]+$sum;
-                        }else{
-                            if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][1]+$sum;
-                            else $deepbox[$activetag-1][0]=$deepbox[$activetag][1]+$sum;
-                        }
-                        //var_dump($deepbox);
-                        $activetag--;
+                        echo "branch $activetag has long $sum \n";
+                        $deepbox[$activetag][$boxindex]=$sum;
                     }
                 }
+                while((is_int($deepbox[$activetag][0]) && is_int($deepbox[$activetag][1])))
+                {//该层次的道路都已清算完毕 向上一层结算 优先填充[0]在填充[1]
+                    if(is_int($deepbox[1][0]))//已经回溯到根了
+                    {
+                        $mainlong+=$deepbox[1][0];
+                        echo "get long ".$deepbox[1][0]."\n";
+                        $activetag--;
+                        break;
+                    }
+                    $sum=0;
+                    for($j=0;$j<count($this->publicdata['road']);$j++)
+                    {
+                        if($this->activeroad[$j]==$activetag-1)
+                        {
+                            $sum++;
+                            $this->activeroad[$j]=0;//清空active标志
+                        }
+                    }
+                    echo "father branch $activetag has long $sum \n";
+                    if($deepbox[$activetag][0]>$deepbox[$activetag][1])
+                    {
+                        if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][0]+$sum;
+                        else $deepbox[$activetag-1][0]=$deepbox[$activetag][0]+$sum;
+                    }else{
+                        if(is_int($deepbox[$activetag-1][0]))$deepbox[$activetag-1][1]=$deepbox[$activetag][1]+$sum;
+                        else $deepbox[$activetag-1][0]=$deepbox[$activetag][1]+$sum;
+                    }
+                    //var_dump($deepbox);
+                    $activetag--;
+                }
             }
-            //至此，两个方向的最大道路都已回溯完毕
-            $mainlong--;//因为根道路被重复计算了所以需要-1
             if($maxroad<$mainlong)$maxroad=$mainlong;
         }
         echo "Max road: $maxroad \n";
@@ -486,14 +488,11 @@ class gamedata{
             $branch=array();
             foreach ($nearroad as $Pos) {
                 $roadindex=$this->getIndexByPos($Pos);
-                if($this->activeroad[$roadindex]!=0 
-                || $this->roadchklist[$roadindex]==true)
+                if($this->activeroad[$roadindex]!=0 )
                 {
                     $usenum+=1;
                 }else if($ref[$roadindex]['belongto']==$userindex){
                     array_push($branch,$Pos);//将还没登记的道路推送到分支上
-                    echo "new branch road ";
-                    $this->printPos($Pos);
                 }
             }
             if(count($branch)==2)//存在新分支
@@ -508,6 +507,9 @@ class gamedata{
                         }
                     }
                 }
+                echo "found branch:\n";
+                $this->printPos($branch[0]);
+                $this->printPos($branch[1]);
                 return $branch;
             }else if(count($branch)==1)//存在继续延展的方向
             {
@@ -516,14 +518,12 @@ class gamedata{
                 $roadindex=$this->getIndexByPos($branch[0]);//获得新路的index
                 $this->activeroad[$roadindex]=$branchtag;//将该条道路标记为活跃
                 $nodePos=$this->getNodeConnectRoad($branch[0]);
-                $this->printPos($P);
                 foreach ($nodePos as $Pos) {
                     if($P===$Pos)
                     {
                         continue;
                     }
                     $P=$Pos;//刷新要继续探路的nodeindex
-                    echo "refresh Pos\n";
                     break;
                 }
             }else{//没有新路，该分支已探索完成
