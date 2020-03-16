@@ -7,7 +7,7 @@ const MaxPlayer=4;//定义房间最大游玩数
 const MinPlayer=1;//定义这种游戏最少玩家数 如果和maxplayer一样则必须满房间的人才可以开局 测试用改成了1
 //catan是一局游戏的数据，对应一个房间
 class gameroom{
-    public static $ser;//存放服务器信息
+    public $ser;//存放服务器信息
     public $isplaying=0;//表示该房间是否在游玩
     public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
@@ -48,7 +48,7 @@ class gameroom{
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
-            if($this->gameid[$i])//存在该玩家
+            if(isset($this->gameid[$i]))//存在该玩家
             {
                 $this->sendDataByIndex($i,$msg);
             }
@@ -71,7 +71,7 @@ class gameroom{
         $i=0;
         for(;$i<MaxPlayer;$i++)
         {
-            if($this->gameid[$i] && $i!=$index)
+            if(isset($this->gameid[$i]) && $i!=$index)
             {
                 $retval['head']='enter';
                 $retval['index']=$i;

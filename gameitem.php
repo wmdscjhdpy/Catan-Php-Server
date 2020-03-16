@@ -77,7 +77,6 @@ class gamedata{
     }
     public function flushPrivateData($index,$msg=null)//这个是将服务器的对应数据全部推送过去，如果数据变化比较多的话就这么干
     {
-        $it=$data;//更改数据
         $send['head']='update';
         $send['type']='private';
         $send['key']=null;
@@ -107,7 +106,7 @@ class gamedata{
     }
     public function getIndexByPos($Pos)//通过Pos获取index，hexagon node road通用 如果不在地图里则返回null
     {
-        if($Pos[1]!=null)
+        if(isset($Pos[1]))
         {
             if(count($Pos)==2)
             {
@@ -262,7 +261,7 @@ class gamedata{
         foreach ($P as $key => $hexagonPos) {
             $hexagonindex=$this->getIndexByPos($hexagonPos);
             if($hexagonindex===null)continue;//不在地图内的hexagon
-            if($this->resList[$hexagonindex][$index]===null)$this->resList[$hexagonindex][$index]=0;
+            if(isset($this->resList[$hexagonindex][$index]))$this->resList[$hexagonindex][$index]=0;
             $this->resList[$hexagonindex][$index]+=1;
         }
         $this->pridata[$index]['score']+=1;
@@ -377,7 +376,7 @@ class gamedata{
     {
         $ref=&$this->publicdata['road'];
         $maxroad=0;//用于本次分析的最大道路检测
-        for($i=0;$i<count($this->publicdata['road']);$i++)
+        for($i=0;$i<count($ref);$i++)
         {//开始试图延展道路 先找出一个端点路线
             if($ref[$i]['belongto']!=$userindex)continue;//该道路不属于当前用户
             $tmpnode=$this->getNodeConnectRoad($ref[$i]['Pos']);
@@ -432,6 +431,7 @@ class gamedata{
                         $sum=0;
                         for($j=0;$j<count($this->publicdata['road']);$j++)
                         {
+                            if(isset($this->activeroad[$j]))
                             if($this->activeroad[$j]==$activetag)
                             {
                                 $sum++;
@@ -475,6 +475,13 @@ class gamedata{
             }
             if($maxroad<$mainlong)$maxroad=$mainlong;
         }
+        if($maxroad==0)//到现在还没有找到奇数端点，是全偶数道路地图
+        {//因为是全偶数道路地图 所以有多少条路就是多少条最大道路
+            for($i=0;$i<count($ref);$i++)
+            {
+                if($ref[$i]['belongto']==$userindex)$maxroad++;
+            }
+        }
         echo "Max road: $maxroad \n";
         return $maxroad;
     }
@@ -488,6 +495,7 @@ class gamedata{
             $branch=array();
             foreach ($nearroad as $Pos) {
                 $roadindex=$this->getIndexByPos($Pos);
+                if(isset($this->activeroad[$roadindex]))
                 if($this->activeroad[$roadindex]!=0 )
                 {
                     $usenum+=1;
@@ -640,7 +648,7 @@ class gamedata{
                 $this->publicdata['player'][$l]['card']=0;
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
-                    $this->pridata[$l]['resources'][kindnum[$i]]=5;//TODO:调试方便改的初始资源 记得改回来
+                    $this->pridata[$l]['resources'][kindnum[$i]]=0;//TODO:调试方便改的初始资源 记得改回来
                 $this->pridata[$l]['score']=0;
             }else{
                 $this->publicdata['player'][$l]['status']=null;

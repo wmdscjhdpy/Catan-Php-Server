@@ -112,7 +112,7 @@ class gamehall{
                 $i=0;
                 for(;$i<MaxPlayer;$i++)
                 {
-                    if($this->roomdata[$info['roomnum']]->gameid[$i]!=null)
+                    if(isset($this->roomdata[$info['roomnum']]->gameid[$i]))
                     {
                         if($i==$this->roomdata[$info['roomnum']]->hostindex)//
                         {
