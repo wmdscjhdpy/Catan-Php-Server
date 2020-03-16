@@ -31,6 +31,12 @@ class gameroom{
         }
         if($i!=MaxPlayer)//说明房间有空位
         {
+            foreach ($this->nicklist as $index => $name) {
+                if($name==$nickname)
+                {
+                    $nickname.="(副本)";
+                }
+            }
             $this->nicklist[$i]=$nickname;
             $this->gameid[$i]=$ip;
             $this->gameready[$i]=0;
@@ -68,24 +74,16 @@ class gameroom{
     }
     public function sendOtherUserInfo($index)//向该用户发送房间其他人的信息
     {
-        $i=0;
+        $ret['head']='info';
         for(;$i<MaxPlayer;$i++)
         {
             if(isset($this->gameid[$i]) && $i!=$index)
             {
-                $retval['head']='enter';
-                $retval['index']=$i;
-                $retval['nickname']=$this->nicklist[$i];
-                $this->sendDataByIndex($index,$retval);
-                if($this->gameready[$i]==1)//还需要发准备状态包
-                {
-                    $ret2['head']='ready';
-                    $ret2['index']=$i;
-                    $ret2['flag']=1;
-                    $this->sendDataByIndex($index,$ret2);
-                }
+                $ret[$i]['nickname']=$this->nicklist[$i];
+                $ret[$i]['readystats']=$this->gameready[$i];
             }
         }
+        $ret['priviliege']=$this->hostindex;
     }
 }
 
