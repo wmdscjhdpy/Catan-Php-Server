@@ -34,7 +34,7 @@ class gamehall{
         $i=0;
         for(;$i<MaxPlayer;$i++)//判断是不是空房间
         {
-            if($this->roomdata[$roomnum]->gameid[$i]!=null)break;
+            if(isset($this->roomdata[$roomnum]->gameid[$i]))break;
         }
         //此时i=一个存活的人的index或Maxplayer
         if($i==MaxPlayer)

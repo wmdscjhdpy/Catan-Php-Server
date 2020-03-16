@@ -27,7 +27,7 @@ class gameroom{
         }
         for(;$i<MaxPlayer;$i++)
         {
-            if($this->gameid[$i]==null)break;
+            if(!isset($this->gameid[$i]))break;
         }
         if($i!=MaxPlayer)//说明房间有空位
         {

@@ -1,7 +1,7 @@
 <?php
 class SocketService
 {
-  private $address = '192.168.2.4';
+  private $address = '127.0.0.1';
   private $port = 2333;
   private $_sockets;
   //以下的变量需要自己管理

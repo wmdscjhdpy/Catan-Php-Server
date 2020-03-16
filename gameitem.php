@@ -261,7 +261,7 @@ class gamedata{
         foreach ($P as $key => $hexagonPos) {
             $hexagonindex=$this->getIndexByPos($hexagonPos);
             if($hexagonindex===null)continue;//不在地图内的hexagon
-            if(isset($this->resList[$hexagonindex][$index]))$this->resList[$hexagonindex][$index]=0;
+            if(!isset($this->resList[$hexagonindex][$index]))$this->resList[$hexagonindex][$index]=0;
             $this->resList[$hexagonindex][$index]+=1;
         }
         $this->pridata[$index]['score']+=1;
