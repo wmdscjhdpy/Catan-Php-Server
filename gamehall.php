@@ -69,9 +69,9 @@ class gamehall{
                 {
                     //如果不存在该房间则创建该房间
                     $this->roomdata[$msg['room']]=new gameroom($this->ser);
-                    $retval['head']='priviliege';
                     $this->roomdata[$msg['room']]->hostindex=0;//房主是第一位
-                    $retval['showmsg']="【系统提示】您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";//
+                    $retval['head']='priviliege';
+                    $retval['showmsg']="【系统提示】您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
                 }
                 //var_dump($this->roomdata[$msg['room']]);
                 $seat=$this->roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);

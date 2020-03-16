@@ -31,6 +31,7 @@ class gameroom{
         }
         if($i!=MaxPlayer)//说明房间有空位
         {
+            if(isset($this->nicklist))
             foreach ($this->nicklist as $index => $name) {
                 if($name==$nickname)
                 {
