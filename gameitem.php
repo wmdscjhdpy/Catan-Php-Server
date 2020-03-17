@@ -500,8 +500,8 @@ class gamedata{
             $branch=array();
             foreach ($nearroad as $Pos) {
                 $roadindex=$this->getIndexByPos($Pos);
-                if(isset($this->activeroad[$roadindex]))
-                if($this->activeroad[$roadindex]!=0 )
+                if(isset($this->activeroad[$roadindex])
+                && ($this->activeroad[$roadindex]!=0 ))
                 {
                     $usenum+=1;
                 }else if($ref[$roadindex]['belongto']==$userindex){
@@ -722,7 +722,7 @@ class gamedata{
                 {
                     $showmsg="";
                     foreach ($this->startrolldata as $listindex => $usrindex) {
-                        if($this->publicdata['player'][$usrindex]['resources']>=7)
+                        if($this->publicdata['player'][$usrindex]['resources']>7)
                         {
                             $this->robberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
                             $showmsg.=colornumzh[$usrindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
