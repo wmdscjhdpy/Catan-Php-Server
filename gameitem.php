@@ -301,6 +301,11 @@ class gamedata{
         }
         $nodeindex=$this->getIndexByPos($P);
         $this->AddNodeRes($P,$index);
+        if($this->publicdata['node'][$nodeindex]['port']!=-1)//如果这是一个港口
+        {
+            array_push($this->pridata[$index]['port'],$this->publicdata['node'][$nodeindex]['port']);
+            $this->pridata[$index]['port']=array_unique($this->pridata[$index]['port']);
+        }
         $this->flushPrivateData($index);
         $this->updatePublicData(['node',$nodeindex,'belongto'],$index);
         $this->updatePublicData(['node',$nodeindex,'building'],'home');
@@ -604,25 +609,22 @@ class gamedata{
             }
         }
         //地图初始元素已决定，开始分配属性
-        $hexagonNumberlist=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12,7];
-        $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone'];//注意这个是除掉了沙漠的
+        //TODO:按照法则进行排序 注意应该逆序排列
+        $hexagonNumberlist=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12];
+        $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone','desert'];//注意这个是除掉了沙漠的
         for($i=0;$i<count($rawhexagon);$i++)
         {
+            //先分配资源
             $this->publicdata['hexagon'][$i]['Pos']=$rawhexagon[$i];
-            //先分配数字
-            $number=array_splice($hexagonNumberlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-            $this->publicdata['hexagon'][$i]['number']=$number;
-            //分配资源
-            if($number==7)
+            $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+            $this->publicdata['hexagon'][$i]['kind']=$kind;
+            $this->publicdata['hexagon'][$i]['robber']=false;
+            //然后分配数字
+            if($kind!='desert')
             {
-                $this->robindex=$i;
-                $this->publicdata['hexagon'][$i]['robber']=true;
-                $kind='desert';
-                $this->publicdata['hexagon'][$i]['kind']='desert';
+                $this->publicdata['hexagon'][$i]['number']=array_splice($hexagonNumberlist,0,1)[0];
             }else{
-                $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
-                $this->publicdata['hexagon'][$i]['kind']=$kind;
-                $this->publicdata['hexagon'][$i]['robber']=false;
+                $this->publicdata['hexagon'][$i]['number']=7;
             }
         }
         //节点与道路属性赋予
@@ -631,11 +633,22 @@ class gamedata{
             $this->publicdata['node'][$j]['Pos']=$rawnodelist[$j];
             $this->publicdata['node'][$j]['belongto']=-1;
             $this->publicdata['node'][$j]['building']='blank';
+            $this->publicdata['node'][$j]['port']=-1;
         }
         for($k=0;$k<count($rawroadlist);$k++)
         {
             $this->publicdata['road'][$k]['Pos']=$rawroadlist[$k];
             $this->publicdata['road'][$k]['belongto']=-1;
+        }
+        //分配港口
+        //港口分配表，键为港口index，值为控制的两个node节点
+        $portindextable=array([24,25],[28,29],[30,31],[33,35],[37,38],[40,41],[44,45],[47,48],[50,51]);
+        //港口类型表
+        $portkindtable=array(0,1,2,3,4,5,5,5,5);
+        foreach ($portindextable as $key => $table) {
+            $kind=array_splice($portkindtable,rand(0,count($portkindtable)-1),1)[0];
+            $this->publicdata['node'][$table[0]]['port']=$kind;
+            $this->publicdata['node'][$table[1]]['port']=$kind;
         }
     }
     public function initPlayer($nowplayer)//添加玩家信息和为玩家添加私有数据=
@@ -649,8 +662,9 @@ class gamedata{
                 $this->publicdata['player'][$l]['card']=0;
                 $this->publicdata['player'][$l]['soldier']=0;
                 for($i=0;$i<10;$i++)
-                    $this->pridata[$l]['resources'][kindnum[$i]]=0;//TODO:调试方便改的初始资源 记得改回来
+                    $this->pridata[$l]['resources'][kindnum[$i]]=5;//TODO:调试方便改的初始资源 记得改回来
                 $this->pridata[$l]['score']=0;
+                $this->pridata[$l]['port']=array();
             }else{
                 $this->publicdata['player'][$l]['status']=null;
             }
@@ -972,11 +986,11 @@ class gamedata{
                 }
             break;
             case 'change'://与系统进行交换
-                $this->pridata[$index]['resources'][kindnum[$msg['input']]]-=4;
+                $this->pridata[$index]['resources'][kindnum[$msg['input']]]-=$msg['lost'];
                 $this->pridata[$index]['resources'][kindnum[$msg['output']]]+=1;
                 $this->flushPrivateData($index);
                 $ret['head']='msg';
-                $ret['showmsg']=colornumzh[$index]."玩家使用4个".kindnumzh[$msg['input']]."换取了一个".kindnumzh[$msg['output']]."\n";
+                $ret['showmsg']=colornumzh[$index]."玩家使用".$msg['lost']."个".kindnumzh[$msg['input']]."换取了一个".kindnumzh[$msg['output']]."\n";
                 $this->room->broadcast($ret);
             break;
             case 'endturn':

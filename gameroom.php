@@ -9,7 +9,7 @@ const MinPlayer=1;//定义这种游戏最少玩家数 如果和maxplayer一样�
 class gameroom{
     public $ser;//存放服务器信息
     public $isplaying=0;//表示该房间是否在游玩
-    public $gameid;//是一个array 座位号作为索引，存放玩家ip 无玩家时值会为NULL 为玩家存在判断主要依据
+    public $gameid;//是一个array 座位号作为索引，存放玩家clikey 无玩家时值会为NULL 为玩家存在判断主要依据
     public $nicklist;//玩家名字
     public $gameready;//array 座位号索引 代表玩家准备信息
     public $hostindex;//房主索引
@@ -18,7 +18,7 @@ class gameroom{
         $this->data=new gamedata($this);
         $this->ser=$linkserver;
     }
-    public function enterRoom($ip,$nickname)//登记玩家进入房间
+    public function enterRoom($clikey,$nickname)//登记玩家进入房间
     {
         $i=0;
         if($this->isplaying==1)
@@ -39,7 +39,7 @@ class gameroom{
                 }
             }
             $this->nicklist[$i]=$nickname;
-            $this->gameid[$i]=$ip;
+            $this->gameid[$i]=$clikey;
             $this->gameready[$i]=0;
             return $i;
         }else{
@@ -76,7 +76,7 @@ class gameroom{
     public function sendOtherUserInfo($index)//向该用户发送房间其他人的信息
     {
         $ret['head']='info';
-        for(;$i<MaxPlayer;$i++)
+        for($i=0;$i<MaxPlayer;$i++)
         {
             if(isset($this->gameid[$i]) && $i!=$index)
             {
@@ -85,6 +85,7 @@ class gameroom{
             }
         }
         $ret['priviliege']=$this->hostindex;
+        $this->sendDataByIndex($index,$ret);
     }
 }
 
@@ -96,7 +97,6 @@ function delItemByKey(&$arr, $key){
     $keys = array_keys($arr); 
     $index = array_search($key, $keys); 
     if($index !== FALSE){ 
-        $del=array_splice($arr, $index, 1); 
-        var_dump($del);
+        array_splice($arr, $index, 1);
     }
 }

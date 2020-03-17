@@ -75,7 +75,7 @@ class SocketService
             socket_shutdown($_sock);
             socket_close($_sock);
             continue;
-          }else if($byte==0){
+          }else if($byte==0){//在测试时发现客户端断开连接后还会发送一个空包，因此在此过滤
             continue;
           }
           $this->recv_data[$key] = $this->message($buffer);
