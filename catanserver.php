@@ -61,8 +61,8 @@ class SocketService
              socket_close($newClient);
              continue;
           }  
-          $this->handshaking($newClient, $line);
-          //获取client ip
+          $clikey=$this->handshaking($newClient, $line);
+          //获取client ip 在服务器因为被代理所以ip不能作为唯一手段
           socket_getpeername ($newClient, $ip);
           $this->clients[$ip] = $newClient;
           echo "Client ip:{$ip}  \n";
@@ -104,7 +104,10 @@ class SocketService
       "WebSocket-Origin: $this->address\r\n" .
       "WebSocket-Location: ws://$this->address:$this->port/websocket/websocket\r\n".
       "Sec-WebSocket-Accept:$secAccept\r\n\r\n";
-    return socket_write($newClient, $upgrade, strlen($upgrade));
+    if(socket_write($newClient, $upgrade, strlen($upgrade)))
+    {
+      return $sscKey;
+    }
   }
 
   /**

@@ -622,6 +622,7 @@ class gamedata{
             }else{
                 $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
                 $this->publicdata['hexagon'][$i]['kind']=$kind;
+                $this->publicdata['hexagon'][$i]['robber']=false;
             }
         }
         //节点与道路属性赋予
@@ -709,9 +710,9 @@ class gamedata{
                         if($this->publicdata['player'][$usrindex]['resources']>=7)
                         {
                             $this->robberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
-                            $showmsg.=colornumzh[$userindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
+                            $showmsg.=colornumzh[$usrindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
                         }else{
-                            $showmsg.=colornumzh[$userindex]."玩家由于不足7张牌，不需要为此付出代价\n";
+                            $showmsg.=colornumzh[$usrindex]."玩家由于不足7张牌，不需要为此付出代价\n";
                         }
                     }
                     $this->updatePublicData(['status','extra'],1,"强盗来袭！！！！！！！\n".$showmsg);
