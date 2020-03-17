@@ -20,7 +20,7 @@ class SocketService
         $this->port = $port;
       }
       $this->service();
-      $this->clients[] = $this->_sockets;
+      $this->clients['server'] = $this->_sockets;
   }
 
   public function service(){
@@ -63,15 +63,19 @@ class SocketService
           }  
           $clikey=$this->handshaking($newClient, $line);
           //获取client ip 在服务器因为被代理所以ip不能作为唯一手段
-          socket_getpeername ($newClient, $ip);
-          $this->clients[$ip] = $newClient;
-          echo "Client ip:{$ip}  \n";
+          //socket_getpeername ($newClient, $ip);
+          $this->clients[$clikey] = $newClient;
+          echo "Client clikey:{$clikey}  \n";
         } else {//老客户端的数据
           $byte = socket_recv($_sock, $buffer, 2048, 0);//TODO:如果发生接受错误，将得到null，记得处理
-          if($byte < 9)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
+          if($byte < 9 && $byte!=0)//断开连接标识符 记得处理 如果发现断联不成功可以把7改成9
           {
             $this->disconnected_clients[$key]=1;//标记断线
-            echo "$key disconnected\n";
+            echo "$key disconnected. exit msg:".bin2hex($buffer)."\n";
+            socket_shutdown($_sock);
+            socket_close($_sock);
+            continue;
+          }else if($byte==0){
             continue;
           }
           $this->recv_data[$key] = $this->message($buffer);
@@ -106,7 +110,7 @@ class SocketService
       "Sec-WebSocket-Accept:$secAccept\r\n\r\n";
     if(socket_write($newClient, $upgrade, strlen($upgrade)))
     {
-      return $sscKey;
+      return $secKey;
     }
   }
 

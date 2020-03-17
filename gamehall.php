@@ -10,12 +10,12 @@ class gamehall{
     {
         $this->ser=$ser;
     }
-    ///输入ip，返回房间号
-    public function getInfoFromIp($ip)
+    ///输入clikey，返回房间号
+    public function getInfoFromclikey($clikey)
     {
         if(is_array($this->roomdata))
         foreach ($this->roomdata as $roomnum => $room) {
-            $i=array_search($ip,$room->gameid);
+            $i=array_search($clikey,$room->gameid);
             if($i!==false)//刚刚掉线的玩家在这间房
             {
                 $ret['roomnum']=$roomnum;
@@ -25,11 +25,11 @@ class gamehall{
         }
         return null;
     }
-    public function leaveroom($ip)
+    public function leaveroom($clikey)
     {
-        $roomnum=$this->getInfoFromIp($ip)['roomnum'];
+        $roomnum=$this->getInfoFromclikey($clikey)['roomnum'];
         if($roomnum==null)return;//此人不在任何房间里 直接关闭
-        $index=@array_search($ip,$this->roomdata[$roomnum]->gameid);//找出该ip的索引号
+        $index=@array_search($clikey,$this->roomdata[$roomnum]->gameid);//找出该clikey的索引号
         $this->roomdata[$roomnum]->gameid[$index]=null;//清除该id
         $i=0;
         for(;$i<MaxPlayer;$i++)//判断是不是空房间
@@ -53,7 +53,7 @@ class gamehall{
         $retval['index']=$index;
         $this->roomdata[$roomnum]->broadcast($retval);
     }
-    public function dataHandle($rawmsg,$ip)
+    public function dataHandle($rawmsg,$clikey)
     {
         $msg=json_decode($rawmsg,true);//第二个参数设为true能把msg变成一个数组
         //var_dump($msg);
@@ -74,7 +74,7 @@ class gamehall{
                     $retval['showmsg']="【系统提示】您现在是房主 待所有在场人准备完毕后你可以点击“开始游戏”\n";
                 }
                 //var_dump($this->roomdata[$msg['room']]);
-                $seat=$this->roomdata[$msg['room']]->enterRoom($ip,$msg['nickname']);
+                $seat=$this->roomdata[$msg['room']]->enterRoom($clikey,$msg['nickname']);
                 if($seat==-1)
                 {
                     $retval['head']='error';
@@ -93,7 +93,7 @@ class gamehall{
             break;
             case 'ready':
                 $proessed=1;
-                $info=$this->getInfoFromIp($ip);
+                $info=$this->getInfoFromclikey($clikey);
                 $this->roomdata[$info['roomnum']]->gameready[$info['index']]=$msg['flag'];
                 $bc['head']='ready';
                 $bc['index']=$info['index'];
@@ -102,13 +102,13 @@ class gamehall{
             case 'leave':
                 //注意房主权利转移
                 $proessed=1;
-                $this->leaveroom($ip);
+                $this->leaveroom($clikey);
                 $retval['head']='leavesuccess';
             break;
             case 'gameon':
                 $proessed=1;
                 $nowplayer=array();
-                $info=$this->getInfoFromIp($ip);
+                $info=$this->getInfoFromclikey($clikey);
                 $i=0;
                 for(;$i<MaxPlayer;$i++)
                 {
@@ -143,7 +143,7 @@ class gamehall{
         }
         if(!$proessed)
         {//如果还未处理的话 说明是游戏数据，调用房间内的data里的handleGame方法
-            $info=$this->getInfoFromIp($ip);
+            $info=$this->getInfoFromclikey($clikey);
             $this->roomdata[$info['roomnum']]->data->handleGame($msg,$info['index']);
         }
         //信息分发
@@ -151,11 +151,11 @@ class gamehall{
         {
             //因为不在房间内用的原生发送 所以需要转码
             $json=json_encode($retval,JSON_UNESCAPED_UNICODE);
-            $this->ser->send($this->ser->clients[$ip],$json);
+            $this->ser->send($this->ser->clients[$clikey],$json);
         }
         if($bc)
         {
-            $this->roomdata[$this->getInfoFromIp($ip)['roomnum']]->broadcast($bc);
+            $this->roomdata[$this->getInfoFromclikey($clikey)['roomnum']]->broadcast($bc);
         }
     }
 }
@@ -164,15 +164,16 @@ while (true) {
     $ser->runOnce();
     //处理断线情况
     if(is_array($ser->disconnected_clients))
-    foreach ($ser->disconnected_clients as $ip => $value) {
+    foreach ($ser->disconnected_clients as $clikey => $value) {
         //删除断线信息
-        $hall->leaveroom($ip);
-        delItemByKey($ser->disconnected_clients,$ip);
-        delItemByKey($ser->clients,$ip);
+        $hall->leaveroom($clikey);
+        delItemByKey($ser->disconnected_clients,$clikey);
+        delItemByKey($ser->clients,$clikey);
+        echo "handle disconnected client ".$clikey." finish.\n";
     }
     //处理正常情况
     if(is_array($ser->recv_data))
-    foreach ($ser->recv_data as $ip => $data) {
-        $hall->dataHandle($data,$ip);
+    foreach ($ser->recv_data as $clikey => $data) {
+        $hall->dataHandle($data,$clikey);
     }
 }

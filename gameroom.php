@@ -91,12 +91,12 @@ class gameroom{
 //根据键值删除列表元素 该函数应该是通用函数才对的
 function delItemByKey(&$arr, $key){ 
     if(!array_key_exists($key, $arr)){
-        return $arr; 
+        return ; 
     } 
     $keys = array_keys($arr); 
     $index = array_search($key, $keys); 
     if($index !== FALSE){ 
-        array_splice($arr, $index, 1); 
-    } 
-    return $arr; 
+        $del=array_splice($arr, $index, 1); 
+        var_dump($del);
+    }
 }
