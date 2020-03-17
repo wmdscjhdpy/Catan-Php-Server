@@ -650,6 +650,7 @@ class gamedata{
             $this->publicdata['node'][$table[0]]['port']=$kind;
             $this->publicdata['node'][$table[1]]['port']=$kind;
         }
+        $this->publicdata['trade']=null;
     }
     public function initPlayer($nowplayer)//添加玩家信息和为玩家添加私有数据=
     {
@@ -992,6 +993,29 @@ class gamedata{
                 $ret['head']='msg';
                 $ret['showmsg']=colornumzh[$index]."玩家使用".$msg['lost']."个".kindnumzh[$msg['input']]."换取了一个".kindnumzh[$msg['output']]."\n";
                 $this->room->broadcast($ret);
+            break;
+            case 'trade'://玩家贸易
+                switch($msg['flag'])
+                {
+                    case 'open':
+                        $this->publicdata['trade']['tradelist']=$msg['tradelist'];
+                        $this->updatePublicData(['trade'],$this->publicdata['trade'],"".colornumzh[$index]."玩家发起了交易请求，请查看资源板以决定是否交易\n");
+                    break;
+                    case 'accepted':
+                        foreach ($this->publicdata['trade']['tradelist'] as $resindex => $resnum) {
+                            $this->pridata[$this->publicdata['status']['turn']]['resources'][kindnum[$resindex]]+=$resnum;
+                            $this->pridata[$index]['resources'][kindnum[$resindex]]-=$resnum;
+                        }
+                        $this->flushPrivateData($index);
+                        $this->flushPrivateData($this->publicdata['status']['turn']);
+                        $this->updatePublicData(['trade'],null,"".colornumzh[$this->publicdata['status']['turn']]."玩家与".colornumzh[$index]."达成交易，交易关闭\n");
+                    break;
+                    case 'rejected':
+                        $ret['head']='msg';
+                        $ret['showmsg']="".colornumzh[$index]."玩家拒绝了你的交易请求\n";
+                        $this->room->sendDataByIndex($this->publicdata['status']['turn'],$ret);
+                    break;
+                }
             break;
             case 'endturn':
                 $this->getNextPlayer($index);
