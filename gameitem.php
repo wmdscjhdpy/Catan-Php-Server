@@ -616,7 +616,7 @@ class gamedata{
         {
             //先分配资源
             $this->publicdata['hexagon'][$i]['Pos']=$rawhexagon[$i];
-            $kind=array_splice($hexagonkindlist,rand(0,count($hexagonNumberlist)-1),1)[0];//随机调出一个元素并从列表中删掉
+            $kind=array_splice($hexagonkindlist,rand(0,count($hexagonkindlist)-1),1)[0];//随机调出一个元素并从列表中删掉
             $this->publicdata['hexagon'][$i]['kind']=$kind;
             $this->publicdata['hexagon'][$i]['robber']=false;
             //然后分配数字
