@@ -926,8 +926,14 @@ class gamedata{
                     $this->updatePublicData(['status','extra'],2,"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
                     if($this->publicdata['player'][$index]['soldier']>$this->maxsoldiersnum)
                     {
+                        if($this->publicdata['status']['maxsoldiers']!=-1)
+                        {
+                            $this->pridata[$this->publicdata['status']['maxsoldiers']]['score']-=2;
+                            $this->flushPrivateData($this->publicdata['status']['maxsoldiers'],"你的最大士兵成就被抢走了");
+                        }
                         $this->updatePublicData(['status','maxsoldiers'],$index,"".colornumzh[$index]."玩家夺得了最大士兵成就\n");
                         $this->maxsoldiersnum=$this->publicdata['player'][$index]['soldier'];
+                        $this->pridata[$index]['score']+=2;
                     }
                 }else{
                     $this->updatePublicData(['status','extra'],$msg['index'],"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
@@ -1027,7 +1033,7 @@ class gamedata{
             case 'chkwin':
                 if($this->pridata[$index]['score']>=10)
                 {
-                    $this->updatePublicData(['status','process'],0,"游戏结束！胜利者是".colornumzh[$index]."玩家！！！");
+                    $this->updatePublicData(['status','process'],0,"游戏结束！胜利者是".colornumzh[$index]."玩家！！！\n该玩家拥有".$this->pridata[$index]['resources']['winpoint']."张胜利点卡\n");
                 }else{
                     $this->updatePublicData(null,null,"大家快来看看啊！".colornumzh[$index]."玩家不要脸啊！才".$this->pridata[$index]['score']."分就想宣告胜利了！！！\n");
                 }
