@@ -11,6 +11,7 @@ const kindnumzh=array('木头','铁'   ,'羊毛'   ,'小麦' ,'石头' ,'士兵'
 //以下是游戏数据库
 class gamedata{
     private $room;//存放房间信息
+    private $nick;//存放玩家名字，是一个对应index的数组
     public $publicdata;//玩家的公有数据
     private $pridata;//玩家的私有数据
     /*
@@ -27,6 +28,8 @@ class gamedata{
     //和最大道路检查相关的变量
     private $activeroad=array();//活跃中的检查道路，其值为活跃代号，数字越大代表越处于分支的末尾
 
+    //交易检查量
+    private $rejectednum=0;
     public function __construct($room){
         $this->room=$room;
     }
@@ -609,8 +612,7 @@ class gamedata{
             }
         }
         //地图初始元素已决定，开始分配属性
-        //TODO:按照法则进行排序 注意应该逆序排列
-        $hexagonNumberlist=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12];
+        $hexagonNumberlist=[11,3,6,5,4,9,10,8,4,11,12,9,10,8,3,6,2,5];
         $hexagonkindlist=['forest','forest','forest','forest','iron','iron','iron','grass','grass','grass','grass','wheat','wheat','wheat','wheat','stone','stone','stone','desert'];//注意这个是除掉了沙漠的
         for($i=0;$i<count($rawhexagon);$i++)
         {
@@ -727,7 +729,7 @@ class gamedata{
                             $this->robberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
                             $showmsg.=colornumzh[$usrindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
                         }else{
-                            $showmsg.=colornumzh[$usrindex]."玩家由于不足7张牌，不需要为此付出代价\n";
+                            $showmsg.=colornumzh[$usrindex]."玩家由于未超过7张牌，不需要为此付出代价\n";
                         }
                     }
                     $this->updatePublicData(['status','extra'],1,"强盗来袭！！！！！！！\n".$showmsg);
@@ -808,29 +810,30 @@ class gamedata{
                     {
                         $flag=1;
                     }
-                    if($flag==1 && $msg['index']!=-1)
-                    {
-                        $getindex=rand(1,$this->publicdata['player'][$msg['index']]['resources']);
-                        foreach ($this->pridata[$msg['index']]['resources'] as $resindex => $resnum) {
-                            if($getindex>$resnum)
-                            {
-                                $getindex-=$resnum;
-                                continue;
-                            }
-                            $this->pridata[$msg['index']]['resources'][$resindex]-=1;
-                            $this->pridata[$index]['resources'][$resindex]+=1;
-                            $this->flushPrivateData($msg['index'],"你被抢走了一个".kindnumzh[array_search($resindex,kindnum)]."\n");
-                            
-                            $this->flushPrivateData($index,"你掠夺来了一个".kindnumzh[array_search($resindex,kindnum)]."\n");
-                            break;
+                }
+                if($flag==1 //所选玩家在附近
+                && $msg['index']!=-1    //所选的不是空地
+                && $this->publicdata['player'][$msg['index']]['resources']>=1)//已选中玩家有卡
+                {
+                    $getindex=rand(1,$this->publicdata['player'][$msg['index']]['resources']);
+                    foreach ($this->pridata[$msg['index']]['resources'] as $resindex => $resnum) {
+                        if($getindex>$resnum)
+                        {
+                            $getindex-=$resnum;
+                            continue;
                         }
+                        $this->pridata[$msg['index']]['resources'][$resindex]-=1;
+                        $this->pridata[$index]['resources'][$resindex]+=1;
+                        $this->flushPrivateData($msg['index'],"你被抢走了一个".kindnumzh[array_search($resindex,kindnum)]."\n");
+                        
+                        $this->flushPrivateData($index,"你掠夺来了一个".kindnumzh[array_search($resindex,kindnum)]."\n");
                         break;
                     }
-                    $this->updatePublicData(['status','extra'],0);
-                    if($this->publicdata['status']['process']==3)
-                    {
-                        $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
-                    }
+                }
+                $this->updatePublicData(['status','extra'],0);
+                if($this->publicdata['status']['process']==3)
+                {
+                    $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
                 }
             break;
             case 'buildhome':
@@ -1006,6 +1009,7 @@ class gamedata{
                     case 'open':
                         $this->publicdata['trade']['tradelist']=$msg['tradelist'];
                         $this->updatePublicData(['trade'],$this->publicdata['trade'],"".colornumzh[$index]."玩家发起了交易请求，请查看资源板以决定是否交易\n");
+                        $this->rejectednum=0;
                     break;
                     case 'accepted':
                         foreach ($this->publicdata['trade']['tradelist'] as $resindex => $resnum) {
@@ -1020,6 +1024,14 @@ class gamedata{
                         $ret['head']='msg';
                         $ret['showmsg']="".colornumzh[$index]."玩家拒绝了你的交易请求\n";
                         $this->room->sendDataByIndex($this->publicdata['status']['turn'],$ret);
+                        $this->rejectednum++;
+                        if($this->rejectednum==count($this->startrolldata)-1)//所有人都拒绝了这次贸易
+                        {
+                            $this->updatePublicData(['trade'],null,"没有人愿意交易，交易关闭\n");
+                        }
+                    break;
+                    case 'close':
+                        $this->updatePublicData(['trade'],null,"交易被主动关闭\n");
                     break;
                 }
             break;

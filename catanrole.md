@@ -25,6 +25,7 @@
     - open:打开贸易
     - accepted:接受并关闭贸易 服务器接收到后会处理贸易，并广播贸易信息并关闭贸易
     - rejected:拒绝并关闭贸易 服务器向交易主提示拒绝，该玩家将自己的gamemap设置为贸易关闭
+    - close:贸易主关闭已经提交的贸易
 - tradelist:贸易详情 服务器接受到后会填充gamemap的trade使其符合要求 仅当flag=open时可用
 
 ### head:endturn
