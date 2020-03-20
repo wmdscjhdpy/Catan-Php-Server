@@ -30,8 +30,9 @@ class gamedata{
 
     //交易检查量
     private $rejectednum=0;
-    public function __construct($room){
-        $this->room=$room;
+    public function __construct(&$room){
+        $this->room=&$room;
+        $this->nick=&$this->room->nicklist;
     }
     //调试用函数
     public function printPos($Pos)
@@ -311,7 +312,7 @@ class gamedata{
         }
         $this->flushPrivateData($index);
         $this->updatePublicData(['node',$nodeindex,'belongto'],$index);
-        $this->updatePublicData(['node',$nodeindex,'building'],'home');
+        $this->updatePublicData(['node',$nodeindex,'building'],'home',$this->nick[$index]."修起了一座村庄\n");
         return true;
     }
     public function buildroad($P,$index,$param=0)//为index修一条路，param为1则不耗费资源且按初期要求检查道路，2为道路建设的免费路
@@ -363,7 +364,7 @@ class gamedata{
                 return false;
             }
         }
-        $this->updatePublicData(['road',$roadindex,'belongto'],$index);
+        $this->updatePublicData(['road',$roadindex,'belongto'],$index,$this->nick[$index]."修建了一条道路\n");
         //最大道路检查
         $maxroad=$this->maxRoadChk($index);
         if($maxroad>$this->maxroadsnum)
@@ -375,7 +376,7 @@ class gamedata{
                 $this->flushPrivateData($this->publicdata['status']['maxroads'],"你失去了最大道路成就\n");
             }
             $this->pridata[$index]['score']+=2;
-            $this->updatePublicData(['status','maxroads'],$index,"".colornumzh[$index]."玩家获得了最大道路成就\n");
+            $this->updatePublicData(['status','maxroads'],$index,"".$this->nick[$index]."获得了最大道路成就\n");
         }
         $this->flushPrivateData($index);
         return true;
@@ -462,7 +463,8 @@ class gamedata{
                     $sum=0;
                     for($j=0;$j<count($this->publicdata['road']);$j++)
                     {
-                        if($this->activeroad[$j]==$activetag-1)
+                        if(isset($this->activeroad[$j])
+                        && $this->activeroad[$j]==$activetag-1)
                         {
                             $sum++;
                             $this->activeroad[$j]=0;//清空active标志
@@ -696,7 +698,7 @@ class gamedata{
         shuffle($this->startrolldata);//打乱摇骰子顺序
         for($i=0;$i<count($this->startrolldata);$i++)
         {
-            $retdata['showmsg'].="第".($i+1)."个放房子的是".colornumzh[$this->startrolldata[$i]]."玩家\n";
+            $retdata['showmsg'].="第".($i+1)."个放房子的是".$this->nick[$this->startrolldata[$i]]."\n";
         }
         $this->room->broadcast($retdata);
         $this->updatePublicData(['status','turn'],$this->startrolldata[$this->tmpvalue]);//分配第一个建房子的人
@@ -727,9 +729,9 @@ class gamedata{
                         if($this->publicdata['player'][$usrindex]['resources']>7)
                         {
                             $this->robberchklist[$listindex]=floor($this->publicdata['player'][$usrindex]['resources']/2);
-                            $showmsg.=colornumzh[$usrindex]."玩家需要丢弃".$this->robberchklist[$listindex]."张牌\n";
+                            $showmsg.=$this->nick[$usrindex]."需要丢弃".$this->robberchklist[$listindex]."张牌\n";
                         }else{
-                            $showmsg.=colornumzh[$usrindex]."玩家由于未超过7张牌，不需要为此付出代价\n";
+                            $showmsg.=$this->nick[$usrindex]."由于未超过7张牌，不需要为此付出代价\n";
                         }
                     }
                     $this->updatePublicData(['status','extra'],1,"强盗来袭！！！！！！！\n".$showmsg);
@@ -740,7 +742,7 @@ class gamedata{
                     }
                     if($flag)
                     {//所有玩家都已完成强盗丢牌工作，进入下一环节
-                        $showmsg="没有人需要弃牌，由".colornumzh[$this->publicdata['status']['turn']]."玩家移动强盗\n";
+                        $showmsg="没有人需要弃牌，由".$this->nick[$this->publicdata['status']['turn']]."移动强盗\n";
                         $this->updatePublicData(['status','extra'],2,$showmsg);
                     }
                 }else{
@@ -760,12 +762,12 @@ class gamedata{
                     {
                         $this->flushPrivateData($userindex);
                     }
-                    $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
+                    $this->updatePublicData(['status','process'],4,''.$this->nick[$index]."进入建设阶段\n");
                 }
             break;
             case 'discard':
                 $ret['head']='msg';
-                $ret['showmsg']=colornumzh[$index]."玩家丢弃了:";
+                $ret['showmsg']=$this->nick[$index]."丢弃了:";
                 for($i=0;$i<5;$i++)
                 {
                     if($msg[$i]!=null)
@@ -784,7 +786,7 @@ class gamedata{
                 }
                 if($flag)
                 {//所有玩家都已完成强盗丢牌工作，进入下一环节
-                    $ret['showmsg'].="所有玩家都已弃牌，由".colornumzh[$this->publicdata['status']['turn']]."玩家移动强盗\n";
+                    $ret['showmsg'].="所有玩家都已弃牌，由".$this->nick[$this->publicdata['status']['turn']]."移动强盗\n";
                     $this->updatePublicData(['status','extra'],2);
                 }
                 $this->flushPrivateData($index);
@@ -833,7 +835,7 @@ class gamedata{
                 $this->updatePublicData(['status','extra'],0);
                 if($this->publicdata['status']['process']==3)
                 {
-                    $this->updatePublicData(['status','process'],4,''.colornumzh[$index]."玩家进入建设阶段\n");
+                    $this->updatePublicData(['status','process'],4,''.$this->nick[$index]."进入建设阶段\n");
                 }
             break;
             case 'buildhome':
@@ -866,7 +868,7 @@ class gamedata{
                 $res['stone']-=3;
                 $this->AddNodeRes($this->publicdata['node'][$msg['index']]['Pos'],$index);
                 $this->flushPrivateData($index);
-                $this->updatePublicData(['node',$msg['index'],'building'],'city');
+                $this->updatePublicData(['node',$msg['index'],'building'],'city',$this->nick[$index]."的一座大城市拔地而起！\n");
             break;
             case 'buildroad':
                 if($this->publicdata['status']['process']==2)//处于预置放路阶段
@@ -900,18 +902,25 @@ class gamedata{
                 }
             break;
             case 'getcard':
-                $res=&$this->pridata[$index]['resources'];
-                $res['wheat']-=1;
-                $res['stone']-=1;
-                $res['grass']-=1;
-                $cardindex=array_splice($this->devcardpool,rand(0,count($this->devcardpool)-1),1)[0];
-                $res[kindnum[$cardindex]]++;
-                if($cardindex==9)//如果抽到的是胜利点
+                if(count($this->devcardpool))
                 {
-                    $this->pridata[$index]['score']++;
+                    $res=&$this->pridata[$index]['resources'];
+                    $res['wheat']-=1;
+                    $res['stone']-=1;
+                    $res['grass']-=1;
+                    $cardindex=array_splice($this->devcardpool,rand(0,count($this->devcardpool)-1),1)[0];
+                    $res[kindnum[$cardindex]]++;
+                    if($cardindex==9)//如果抽到的是胜利点
+                    {
+                        $this->pridata[$index]['score']++;
+                    }
+                    $this->flushPrivateData($index,"你获得了一张".kindnumzh[$cardindex]."\n");
+                    $this->updatePublicData(['player',$index,'card'],1,"".$this->nick[$index]."抽取了一张发展卡\n",'+');
+                }else{
+                    $ret['head']='error';
+                    $ret['showmsg']="发展卡已被抽取空了。。。";
+                    $this->room->sendDataByIndex($index,$ret);
                 }
-                $this->flushPrivateData($index,"你获得了一张".kindnumzh[$cardindex]."\n");
-                $this->updatePublicData(['player',$index,'card'],1,"".colornumzh[$index]."玩家抽取了一张发展卡\n",'+');
             break;
             case 'usecard':
                 $this->pridata[$index]['resources'][kindnum[$msg['index']]]-=1;//扣除卡
@@ -926,7 +935,7 @@ class gamedata{
                 if($msg['index']==5)//是出兵
                 {
                     $this->updatePublicData(['player',$index,'soldier'],'1',null,'+');
-                    $this->updatePublicData(['status','extra'],2,"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
+                    $this->updatePublicData(['status','extra'],2,"".$this->nick[$index]."使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
                     if($this->publicdata['player'][$index]['soldier']>$this->maxsoldiersnum)
                     {
                         if($this->publicdata['status']['maxsoldiers']!=-1)
@@ -934,12 +943,12 @@ class gamedata{
                             $this->pridata[$this->publicdata['status']['maxsoldiers']]['score']-=2;
                             $this->flushPrivateData($this->publicdata['status']['maxsoldiers'],"你的最大士兵成就被抢走了");
                         }
-                        $this->updatePublicData(['status','maxsoldiers'],$index,"".colornumzh[$index]."玩家夺得了最大士兵成就\n");
+                        $this->updatePublicData(['status','maxsoldiers'],$index,"".$this->nick[$index]."夺得了最大士兵成就\n");
                         $this->maxsoldiersnum=$this->publicdata['player'][$index]['soldier'];
                         $this->pridata[$index]['score']+=2;
                     }
                 }else{
-                    $this->updatePublicData(['status','extra'],$msg['index'],"".colornumzh[$index]."玩家使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
+                    $this->updatePublicData(['status','extra'],$msg['index'],"".$this->nick[$index]."使用了".kindnumzh[$msg['index']]."！！\n");//更新特殊事件
                 }
                 $this->flushPrivateData($index,$tips);
             break;
@@ -947,7 +956,7 @@ class gamedata{
                 switch($this->publicdata['status']['extra'])
                 {
                     case 6://丰收之年
-                        $showmsg="".colornumzh[$index]."玩家选择获得了";
+                        $showmsg="".$this->nick[$index]."选择获得了";
                         for($i=0;$i<5;$i++)
                         {
                             $this->pridata[$index]['resources'][kindnum[$i]]+=$msg[$i];
@@ -967,7 +976,7 @@ class gamedata{
                             $ressum+=$resnum;
                             $this->pridata[$this->startrolldata[$i]]['resources'][kindnum[$msg['index']]]=0;
                             $this->flushPrivateData($this->startrolldata[$i]);
-                            $this->updatePublicData(null,null,"".colornumzh[$this->startrolldata[$i]]."玩家由于垄断损失了".$resnum."个".kindnumzh[$msg['index']]."\n");
+                            $this->updatePublicData(null,null,"".$this->nick[$this->startrolldata[$i]]."由于垄断损失了".$resnum."个".kindnumzh[$msg['index']]."\n");
                         }
                         $this->pridata[$index]['resources'][kindnum[$msg['index']]]+=$ressum;
                         $this->flushPrivateData($index,"你这次垄断获得了 $ressum 张牌");
@@ -980,12 +989,12 @@ class gamedata{
                             if($this->tmpvalue==0)
                             {
                                 $this->tmpvalue=1;//标记已经修了一条
-                                $this->updatePublicData(null,null,"".colornumzh[$index]."玩家修好了TA的第一条免费路\n");
+                                $this->updatePublicData(null,null,$this->nick[$index]."修好了TA的第一条免费路\n");
                                 break;
                             }
                             if($this->tmpvalue==1)//两条都修完了
                             {                                
-                                $this->updatePublicData(['status','extra'],0,"".colornumzh[$index]."玩家修好了TA的第二条免费路\n");
+                                $this->updatePublicData(['status','extra'],0,"".$this->nick[$index]."修好了TA的第二条免费路\n");
                                 $this->tmpvalue=0;
                             }
                         }else{
@@ -1000,7 +1009,7 @@ class gamedata{
                 $this->pridata[$index]['resources'][kindnum[$msg['output']]]+=1;
                 $this->flushPrivateData($index);
                 $ret['head']='msg';
-                $ret['showmsg']=colornumzh[$index]."玩家使用".$msg['lost']."个".kindnumzh[$msg['input']]."换取了一个".kindnumzh[$msg['output']]."\n";
+                $ret['showmsg']=$this->nick[$index]."使用".$msg['lost']."个".kindnumzh[$msg['input']]."换取了一个".kindnumzh[$msg['output']]."\n";
                 $this->room->broadcast($ret);
             break;
             case 'trade'://玩家贸易
@@ -1008,7 +1017,7 @@ class gamedata{
                 {
                     case 'open':
                         $this->publicdata['trade']['tradelist']=$msg['tradelist'];
-                        $this->updatePublicData(['trade'],$this->publicdata['trade'],"".colornumzh[$index]."玩家发起了交易请求，请查看资源板以决定是否交易\n");
+                        $this->updatePublicData(['trade'],$this->publicdata['trade'],"".$this->nick[$index]."发起了交易请求，请查看资源板以决定是否交易\n");
                         $this->rejectednum=0;
                     break;
                     case 'accepted':
@@ -1018,11 +1027,11 @@ class gamedata{
                         }
                         $this->flushPrivateData($index);
                         $this->flushPrivateData($this->publicdata['status']['turn']);
-                        $this->updatePublicData(['trade'],null,"".colornumzh[$this->publicdata['status']['turn']]."玩家与".colornumzh[$index]."达成交易，交易关闭\n");
+                        $this->updatePublicData(['trade'],null,"".$this->nick[$this->publicdata['status']['turn']]."与".$this->nick[$index]."达成交易，交易关闭\n");
                     break;
                     case 'rejected':
                         $ret['head']='msg';
-                        $ret['showmsg']="".colornumzh[$index]."玩家拒绝了你的交易请求\n";
+                        $ret['showmsg']="".$this->nick[$index]."拒绝了你的交易请求\n";
                         $this->room->sendDataByIndex($this->publicdata['status']['turn'],$ret);
                         $this->rejectednum++;
                         if($this->rejectednum==count($this->startrolldata)-1)//所有人都拒绝了这次贸易
@@ -1036,18 +1045,21 @@ class gamedata{
                 }
             break;
             case 'endturn':
-                $this->getNextPlayer($index);
-                $this->updatePublicData(['status','process'],3);
-                $ret['head']='msg';
-                $ret['showmsg']=colornumzh[$index]."玩家结束了建设，请".colornumzh[$this->publicdata['status']['turn']]."玩家投骰子\n";
-                $this->room->broadcast($ret);
+                if($this->publicdata['status']['process']==4)
+                {
+                    $this->getNextPlayer($index);
+                    $this->updatePublicData(['status','process'],3);
+                    $ret['head']='msg';
+                    $ret['showmsg']=$this->nick[$index]."结束了建设，请".$this->nick[$this->publicdata['status']['turn']]."投骰子\n";
+                    $this->room->broadcast($ret);
+                }
             break;
             case 'chkwin':
                 if($this->pridata[$index]['score']>=10)
                 {
-                    $this->updatePublicData(['status','process'],0,"游戏结束！胜利者是".colornumzh[$index]."玩家！！！\n该玩家拥有".$this->pridata[$index]['resources']['winpoint']."张胜利点卡\n");
+                    $this->updatePublicData(['status','process'],0,"游戏结束！胜利者是".$this->nick[$index]."！！！\n该玩家拥有".$this->pridata[$index]['resources']['winpoint']."张胜利点卡\n");
                 }else{
-                    $this->updatePublicData(null,null,"大家快来看看啊！".colornumzh[$index]."玩家不要脸啊！才".$this->pridata[$index]['score']."分就想宣告胜利了！！！\n");
+                    $this->updatePublicData(null,null,"大家快来看看啊！".$this->nick[$index]."不要脸啊！才".$this->pridata[$index]['score']."分就想宣告胜利了！！！\n");
                 }
             break;
             default:
