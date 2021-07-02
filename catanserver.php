@@ -40,7 +40,7 @@ class SocketService
   /*
   处理一次websocket信息，不包括接收和发送标准信息
   该函数将自动处理新加入的客户端并将其加至客户端列表中
-  如果有任意客户端向本服务器发送了数据将会转存在recv_data中，键值是ip地址
+  如果有任意客户端向本服务器发送了数据将会转存在recv_data中，键值是clikey
   如果有任意客户端终止连接，将在disconnected_clients中标记为1
   */
   public function runOnce(){

@@ -169,6 +169,7 @@ while (true) {
         $hall->leaveroom($clikey);
         delItemByKey($ser->disconnected_clients,$clikey);
         delItemByKey($ser->clients,$clikey);
+        delItemByKey($ser->recv_data,$clikey);
         echo "handle disconnected client ".$clikey." finish.\n";
     }
     //处理正常情况
